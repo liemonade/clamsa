@@ -6,6 +6,8 @@ import argparse
 import configparser
 import json
 
+import utilities.msa_converter as mc
+
 
 # Default values
 DEFAULT_CONFIG_PATH = "config.ini"
@@ -40,9 +42,52 @@ def file_exists(arg):
     return arg
 
 
+class Aladdin(object):
+
+    def __init__(self):
+        parser = argparse.ArgumentParser(
+            usage='''aladdin.py <command> [<args>]
+
+The most commonly used aladdin commands are:
+   convert    Creates an MSA dataset ready for usage in aladdin
+   train      Train aladdin on a dataset of MSA with given models
+   evaluate   Infer likelihood for any given MSA in a dataset to be an exon
+''')
+        parser.add_argument('command', help='Subcommand to run')
+
+        # parse the command
+        args = parser.parse_args(sys.argv[1:2])
+        if not hasattr(self, args.command):
+            print('Unrecognized command')
+            parser.print_help()
+            exit(1)
+        
+        getattr(self, args.command)()
+
+    def commit(self):
+        parser = argparse.ArgumentParser(
+            description='Record changes to the repository')
+        # prefixing the argument with -- means it's optional
+        parser.add_argument('--amend', action='store_true')
+        # now that we're inside a subcommand, ignore the first
+        # TWO argvs, ie the command (git) and the subcommand (commit)
+        args = parser.parse_args(sys.argv[2:])
+        print ( 'Running git commit, amend=%s' ) % args.amend
+
+    def fetch(self):
+        parser = argparse.ArgumentParser(
+            description='Download objects and refs from another repository')
+        # NOT prefixing the argument with -- means it's not optional
+        parser.add_argument('repository')
+        args = parser.parse_args(sys.argv[2:])
+        print ( 'Running git fetch, repository=%s' ) % args.repository
+
+
 
 def main():
 
+    Aladdin()
+    exit(0)
     # Shorten notation
     pn = PARAMETER_NAMES
 
