@@ -152,12 +152,12 @@ Use one of the following commands:
 
         if args.in_type == 'augustus':
             if args.clades != None:
-                T, species = mc.import_augustus_training_file(args.input_files, reference_clades=args.clades)
+                T, species = mc.import_augustus_training_file(args.input_files, reference_clades=args.clades, margin_width=10)
                 print([mc.leave_order(c) for c in args.clades])
             else:
                 T, species = mc.import_augustus_training_file(args.input_files)
 
-            i = 101
+            i = 1
             print(T[i])
             print(T[i].codon_alignment)
             print(species)

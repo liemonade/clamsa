@@ -56,9 +56,26 @@ class MSA(object):
         return self._coded_sequence
 
     @property
-    def codon_alignment(self, gap_symbols='-'):
+    def codon_alignment(self, alphabet='acgt', gap_symbols='-'):
 
-        return tuple_alignment(self.sequence, gap_symbols, tuple_length=3)
+        # size of a codon in characters
+        c = 3
+
+        # the list of sequences that should be codon aligned
+        sequences = self.sequence
+
+        # TODO: ask whether this is the right behavior
+        if not self.is_on_plus_strand:
+            rev_alphabet = alphabet[::-1]
+            tbl = str.maketrans(alphabet, rev_alphabet)
+            sequences = [s[::-1].translate(tbl) for s in sequences]
+
+        # slice such that the sequence starts on frame 0
+        start = (c - self.frame) % c
+        sequences = [s[start:] for s in sequences]
+
+
+        return tuple_alignment(sequences, gap_symbols, tuple_length=c)
 
     @property
     def sequence(self):
@@ -74,6 +91,26 @@ class MSA(object):
 
 
 
+''' 
+ * Two codons are considered aligned, when all 3 of their bases are aligned with each other.
+ * Note that not all bases of an ExonCandidate need be aligned.
+ * example input (all ECs agree in phase at both boundaries)
+ *        
+ *                 a|c - - t t|g a t|g t c|g a t|a a 
+ *                 a|c - - c t|a a - - - c|a n c|a g
+ *                 g|c g - t|t g a|- g t c|g a c|a a
+ *                 a|c g t|t t g|a t - t|c g a|c - a
+ *                 a|c g - t|t g a|t g t|t g a|- a a
+ *                   ^                       ^
+ * firstCodonBase    |                       | lastCodonBase (for last species)
+ * example output: (stop codons are excluded for singe and terminal exons)
+ *                 - - -|c t t|- - -|g t c|- - -|g a t
+ *                 - - -|c c t|- - -|- - -|- - -|a n c
+ *                 c g t|- - -|t g a|g t c|- - -|g a c
+ *                 - - -|- - -|- - -|- - -|c g a|- - -
+ *                 c g t|- - -|t g a|- - -|t g a|- - -
+ *
+'''
 def tuple_alignment(sequences, gap_symbols='-', tuple_length=3):
     # shorten notation
     S = sequences
@@ -251,7 +288,9 @@ def import_augustus_training_file(paths, undersample_neg_by_factor = 1., alphabe
 
                     entry.spec_ids.append(spec_reorder[ int(slice_data[0]) ])
                     entry.offsets.append(int(slice_data[1]))
-                    entry.sequence.append(slice_data[3][:-1])
+                    padded_sequence = slice_data[3][:-1]
+                    sequence = padded_sequence[margin_width:-margin_width] if margin_width > 0 else padded_sequence
+                    entry.sequence.append(sequence)
 
                     
                 # retrieve the number of species
