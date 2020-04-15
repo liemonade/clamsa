@@ -1,10 +1,12 @@
-#!/usr/bin/python3
+#!/usr/bin/env python
 
 import sys
 import os
 import argparse
 import configparser
 import json
+import numbers
+import newick
 
 import utilities.msa_converter as mc
 
@@ -15,6 +17,7 @@ ALADDIN_VERSION = "0.1" # A version number used to check for compatibility
 
 # Default config name
 DEFAULT_CONFIG_NAME = 'DEFAULT'
+
 
 # Parameter names in config file
 CFG_IN_SECTION = 'ConfigInName'
@@ -41,6 +44,33 @@ def file_exists(arg):
         raise argparse.ArgumentTypeError(f"The file {arg} does not exist!")
     return arg
 
+def folder_exists_and_is_writable(arg):
+    if not os.path.isdir(arg) or not os.access(arg, os.W_OK):
+        raise argparser.ArgumentTypeError(f"The folder  {arg} does not exist or is not writable!")
+    return arg
+
+def is_valid_split(arg):
+    try:
+        splits = json.loads(arg)
+        if not isinstance(splits, dict):
+            argparse.ArgumentTypeError(f'The provided split {arg} does not represent a dictionairy!')
+
+        num_minus_one = 0
+        for split in splits:
+
+            if not isinstance(splits[split], numbers.Number):
+                raise argparse.ArgumentTypeError(f'The provided value "{splits[split]}" for the split "{split}" is not a number!')
+
+            if splits[split] == -1:
+                num_minus_one = num_minus_one + 1
+
+        if num_minus_one > 1:
+            raise argparse.ArgumentTypeError(f'More than one -1 is provided as a value of the splits!')
+
+        return splits
+    except ValueError:
+        raise argparse.ArgumentTypeError(f'The provided split "{arg}" is not a valid JSON string!')
+
 
 class Aladdin(object):
 
@@ -48,9 +78,9 @@ class Aladdin(object):
         parser = argparse.ArgumentParser(
             usage='''aladdin.py <command> [<args>]
 
-The most commonly used aladdin commands are:
-   convert    Creates an MSA dataset ready for usage in aladdin
-   train      Train aladdin on a dataset of MSA with given models
+Use one of the following commands:
+   convert    Create an MSA dataset ready for usage in aladdin
+   train      Train aladdin on an MSA dataset with given models
    evaluate   Infer likelihood for any given MSA in a dataset to be an exon
 ''')
         parser.add_argument('command', help='Subcommand to run')
@@ -64,24 +94,73 @@ The most commonly used aladdin commands are:
         
         getattr(self, args.command)()
 
-    def commit(self):
+    def convert(self):
         parser = argparse.ArgumentParser(
-            description='Record changes to the repository')
-        # prefixing the argument with -- means it's optional
-        parser.add_argument('--amend', action='store_true')
-        # now that we're inside a subcommand, ignore the first
-        # TWO argvs, ie the command (git) and the subcommand (commit)
-        args = parser.parse_args(sys.argv[2:])
-        print ( 'Running git commit, amend=%s' ) % args.amend
+                description='Create an MSA dataset ready for usage in aladdin')
 
-    def fetch(self):
-        parser = argparse.ArgumentParser(
-            description='Download objects and refs from another repository')
-        # NOT prefixing the argument with -- means it's not optional
-        parser.add_argument('repository')
-        args = parser.parse_args(sys.argv[2:])
-        print ( 'Running git fetch, repository=%s' ) % args.repository
+        parser.add_argument('in_type', 
+                choices=['augustus', 'fasta', 'phylocsf'],
+                metavar='INPUT_TYPE',
+                help='Choose which type of input file(s) should be converted. Supported are: {augustus, fasta, phylocsf}')
 
+        parser.add_argument('input_files',
+            metavar="INPUT_FILE",
+            nargs='+',
+            type=file_exists, 
+            help="Input file(s) in .out(.gz) format from AUGUSTUS, in FASTA (.fs) format or a (.zip) file from PhyloCSF")
+
+        parser.add_argument('--out_dir',
+                metavar='OUTPUT_FOLDER',
+                help='Folder in which the converted MSA database should be stored. By default the folder "msa/" is used.',
+                default='msa/',
+                type=folder_exists_and_is_writable,
+                nargs=1)
+
+        parser.add_argument('--to_phylocsf',
+                help='Specifies that the MSA database should be converted to a format compatible with training and evaluating in PhyloCSF.',
+                action='store_true')
+
+        parser.add_argument('--splits', 
+                help='The imported MSA database will be splitted into the specified pieces. SPLITS_JSON is assumed to be a a dictionairy in JSON notation. The keys are used in conjunction with the base name to specify an output path. The values are assumed to be either positive integers or floating point numbers between zero and one. In the former case up to this number of examples will be stored in the respective split. In the latter case the number will be treated as a percentage number and the respective fraction of the data will be stored in the split. A single "-1" is allowed as a value and all remaining entries will be stored in the respective split.',
+                metavar='SPLITS_JSON',
+                type=is_valid_split)
+
+        # TODO: implement newick check
+        parser.add_argument('--clades',
+                help='Provide a paths CLADES to clade file(s) in Newick (.nwk) format. The species found in the input file(s) are assumed to be contained in the leave set of exactly one these clades. If so, the sequences will be aligned in the particular order specified in the clade. The names of the species in the clade(s) and in the input file(s) need to coincide.',
+                metavar='CLADES',
+                type=file_exists,
+                nargs='+')
+
+        parser.add_argument('--margin_width',
+                help='Whether the input MSAs are padded by a MARGIN_WIDTH necleotides on both sides.',
+                metavar='MARGIN_WIDTH',
+                type=int,
+                nargs=1)
+
+        parser.add_argument('--undersample_negative',
+                help='Undersample the negative samples (Model ID 0) of the input file(s). Any given negative sample will only be imported with a probability of 1/RATIO',
+                metavar='RATIO',
+                nargs=1,
+                type=float)
+
+
+
+
+        # ignore the initial args specifying the command
+        args = parser.parse_args(sys.argv[2:])
+
+        if args.in_type == 'augustus':
+            if args.clades != None:
+                T, species = mc.import_augustus_training_file(args.input_files, reference_clades=args.clades)
+                print([mc.leave_order(c) for c in args.clades])
+            else:
+                T, species = mc.import_augustus_training_file(args.input_files)
+
+            i = 101
+            print(T[i])
+            print(T[i].codon_alignment)
+            print(species)
 
 
 def main():
