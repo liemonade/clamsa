@@ -87,39 +87,50 @@ class MSA(object):
 
 
 
-''' 
- * Two codons are considered aligned, when all 3 of their bases are aligned with each other.
- * Note that not all bases of an ExonCandidate need be aligned.
- * example input (all ECs agree in phase at both boundaries)
- *        
- *                 a|c - - t t|g a t|g t c|g a t|a a 
- *                 a|c - - c t|a a - - - c|a n c|a g
- *                 g|c g - t|t g a|- g t c|g a c|a a
- *                 a|c g t|t t g|a t - t|c g a|c - a
- *                 a|c g - t|t g a|t g t|t g a|- a a
- *                   ^                       ^
- * firstCodonBase    |                       | lastCodonBase (for last species)
- * example output: (stop codons are excluded for singe and terminal exons)
- *                 - - -|c t t|- - -|g t c|- - -|g a t
- *                 - - -|c c t|- - -|- - -|- - -|a n c
- *                 c g t|- - -|t g a|g t c|- - -|g a c
- *                 - - -|- - -|- - -|- - -|c g a|- - -
- *                 c g t|- - -|t g a|- - -|t g a|- - -
- *
- Reproduce via 
-        S = ['ac--ttgatgtcgataa',
-             'ac--ctaa---cancag',
-             'acg-ttga-gtcgacaa',
-             'acgtttgat-tcgac-a',
-             'acg-ttgatgttga-aa']
-        print(tuple_alignment(S, frame=2))
-'''
 def tuple_alignment(sequences, gap_symbols='-', frame=0, tuple_length=3):
+    """
+    Align a list of string sequences to tuples of a fixed length with respect to a set of gap symbols.
+
+    Args:
+        sequences (List[str]) The list of sequences
+        gap_symbols (str): A string containing all symbols to be treated as gap-symbols
+        frame (int): Ignore the first `(tuple_length - frame) % tuple_length` symbols found
+        tuple_length (int): Length of the tuples to be gathered
+
+    Returns:
+        List[str]: The list of tuple strings of the wanted length. The first gap-symbols `gap_symbols[0]` is used to align these (see the example).
+    Example:
+        * Two codons are considered aligned, when all 3 of their bases are aligned with each other.
+        * Note that not all bases of an ExonCandidate need be aligned.
+        * example input (all ECs agree in phase at both boundaries)
+        *        
+        *                 a|c - - t t|g a t|g t c|g a t|a a 
+        *                 a|c - - c t|a a - - - c|a n c|a g
+        *                 g|c g - t|t g a|- g t c|g a c|a a
+        *                 a|c g t|t t g|a t - t|c g a|c - a
+        *                 a|c g - t|t g a|t g t|t g a|- a a
+        *                   ^                       ^
+        * firstCodonBase    |                       | lastCodonBase (for last species)
+        * example output: (stop codons are excluded for singe and terminal exons)
+        *                 - - -|c t t|- - -|g t c|- - -|g a t
+        *                 - - -|c c t|- - -|- - -|- - -|a n c
+        *                 c g t|- - -|t g a|g t c|- - -|g a c
+        *                 - - -|- - -|- - -|- - -|c g a|- - -
+        *                 c g t|- - -|t g a|- - -|t g a|- - -
+        *
+        Reproduce via 
+               S = ['ac--ttgatgtcgataa',
+                    'ac--ctaa---cancag',
+                    'acg-ttga-gtcgacaa',
+                    'acgtttgat-tcgac-a',
+                    'acg-ttgatgttga-aa']
+               print(tuple_alignment(S, frame=2))
+    """
     # shorten notation
     S = sequences
 
 
-    # number of entries missing till the completion of the frameing tuple
+    # number of entries missing until the completion of the framing tuple
     frame_comp = (tuple_length - frame) % tuple_length
 
     # pattern to support frames, i.e. skipping the first `frame` tuple entries at line start
@@ -132,7 +143,7 @@ def tuple_alignment(sequences, gap_symbols='-', frame=0, tuple_length=3):
     # for each sequence find the tuples of indicies 
     T = [set(tuple(m.span(i+1)[0] for i in range(tuple_length)) for m in tuple_re.finditer(s)) for s in S]
     
-    # flatten T to a list and count how much each multiindex is encountered
+    # flatten T to a list and count how often each multiindex is encountered
     occ = Counter( list(itertools.chain.from_iterable([list(t) for t in T])) )
     
     # find those multiindices that are in more than one sequence and sort them lexicographically
@@ -144,7 +155,7 @@ def tuple_alignment(sequences, gap_symbols='-', frame=0, tuple_length=3):
     #   specified by the `j`-th multiindex
     #
     #   otherwise the prime gap_symbol (`gap_symbol[0]`) will be used as a filler
-    missing_entry = gap_symbols * tuple_length
+    missing_entry = gap_symbols[0] * tuple_length
     entry_func = lambda i,j: ''.join([S[i][a] for a in I[j]]) if I[j] in T[i] else missing_entry
     ta_matrix = np.vectorize(entry_func)(np.arange(len(S))[:,None],np.arange(len(I)))
     
@@ -158,6 +169,15 @@ def tuple_alignment(sequences, gap_symbols='-', frame=0, tuple_length=3):
 
 
 def leave_order(path):
+    """
+        Find the leave names in a Newick file and return them in the order specified by the file
+
+        Args:
+            path (str): Path to the Newick file
+
+        Returns:
+            List[str]: Leave names encountered in the file
+    """
 
     # regex that finds leave nodes in a newick string
     # these are precisely those nodes which do not have children
