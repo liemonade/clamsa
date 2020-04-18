@@ -1,5 +1,5 @@
 import gzip
-import re
+import regex as re
 import random
 import numpy as np
 from Bio import SeqIO
@@ -70,12 +70,8 @@ class MSA(object):
             tbl = str.maketrans(alphabet, rev_alphabet)
             sequences = [s[::-1].translate(tbl) for s in sequences]
 
-        # slice such that the sequence starts on frame 0
-        start = (c - self.frame) % c
-        sequences = [s[start:] for s in sequences]
 
-
-        return tuple_alignment(sequences, gap_symbols, tuple_length=c)
+        return tuple_alignment(sequences, gap_symbols, frame=self.frame, tuple_length=c)
 
     @property
     def sequence(self):
@@ -110,14 +106,28 @@ class MSA(object):
  *                 - - -|- - -|- - -|- - -|c g a|- - -
  *                 c g t|- - -|t g a|- - -|t g a|- - -
  *
+ Reproduce via 
+        S = ['ac--ttgatgtcgataa',
+             'ac--ctaa---cancag',
+             'acg-ttga-gtcgacaa',
+             'acgtttgat-tcgac-a',
+             'acg-ttgatgttga-aa']
+        print(tuple_alignment(S, frame=2))
 '''
-def tuple_alignment(sequences, gap_symbols='-', tuple_length=3):
+def tuple_alignment(sequences, gap_symbols='-', frame=0, tuple_length=3):
     # shorten notation
     S = sequences
+
+
+    # number of entries missing till the completion of the frameing tuple
+    frame_comp = (tuple_length - frame) % tuple_length
+
+    # pattern to support frames, i.e. skipping the first `frame` tuple entries at line start
+    frame_pattern = '(?:(?:^' + f'[^{gap_symbols}]'.join([f'[{gap_symbols}]*' for i in range(frame_comp+1)]) + f')|[{gap_symbols}]*)\K'
     
     # generate pattern that recognizes tuples of the given length and that ignores gap symbols
     tuple_pattern = f'[{gap_symbols}]*'.join([f'([^{gap_symbols}])' for i in range(tuple_length)])
-    tuple_re = re.compile(tuple_pattern)
+    tuple_re = re.compile(frame_pattern + tuple_pattern)
     
     # for each sequence find the tuples of indicies 
     T = [set(tuple(m.span(i+1)[0] for i in range(tuple_length)) for m in tuple_re.finditer(s)) for s in S]
@@ -130,7 +140,7 @@ def tuple_alignment(sequences, gap_symbols='-', tuple_length=3):
 
     # calculate a matrix with `len(S)` rows and `len(I)` columns.
     #   if the j-th multindex is present in sequence `i` the entry `(i,j)` of the matrix will be 
-    #   substring of length `tuple_length` corresponding to the characters at the positions 
+    #   a substring of length `tuple_length` corresponding to the characters at the positions 
     #   specified by the `j`-th multiindex
     #
     #   otherwise the prime gap_symbol (`gap_symbol[0]`) will be used as a filler

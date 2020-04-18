@@ -157,7 +157,7 @@ Use one of the following commands:
             else:
                 T, species = mc.import_augustus_training_file(args.input_files)
 
-            i = 1
+            i = 2
             print(T[i])
             print(T[i].codon_alignment)
             print(species)
