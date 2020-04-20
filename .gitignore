@@ -1,3 +1,5 @@
 config.ini
 clades/
 msa/
+*.pyc
+.ipynb_checkpoints
