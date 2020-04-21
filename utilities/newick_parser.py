@@ -116,6 +116,7 @@ def nwk_read(nwk_filename):
             
             v = w
             
+    # strip unneeded variables
     T = np.c_[T[:,:t], T[:,-1]]
     
             

@@ -136,6 +136,7 @@ Use one of the following commands:
                 help='Whether the input MSAs are padded by a MARGIN_WIDTH necleotides on both sides.',
                 metavar='MARGIN_WIDTH',
                 type=int,
+                default=0,
                 nargs=1)
 
         parser.add_argument('--undersample_negative',
@@ -151,22 +152,26 @@ Use one of the following commands:
         args = parser.parse_args(sys.argv[2:])
 
         if args.in_type == 'augustus':
-            if args.clades != None:
-                T, species = mc.import_augustus_training_file(args.input_files, reference_clades=args.clades, margin_width=10)
-                print([mc.leave_order(c) for c in args.clades])
-            else:
-                T, species = mc.import_augustus_training_file(args.input_files)
+            T, species = mc.import_augustus_training_file(args.input_files, reference_clades=args.clades, margin_width=10)
+            
+            #mc.persist_as_tfrecord(T, args.out_dir, args.basename, num_species, splits=args.splits, split_models=None, use_codons=False, use_compression=True, verbose=False)
+            print("Import done. Todo: Write the database. As Debug print the first entry:")
+            print(T[0])
 
-            i = 2
-            print(T[i])
-            print(T[i].codon_alignment)
-            print(species)
+        if args.in_type == 'phylocsf':
+            T, species = mc.import_phylocsf_training_file(args.input_files, reference_clades=args.clades, margin_width=args.margin_width)
 
+            print("Import done. Todo: Write the database. As Debug print the first entry:")
+            print(T[0])
+                
 
 def main():
 
     Aladdin()
     exit(0)
+
+
+    # TODO: Old concept code, remove!
     # Shorten notation
     pn = PARAMETER_NAMES
 
