@@ -19,7 +19,7 @@ import io
 
 
 class MSA(object):
-    def __init__(self, model = None, chromosome_id = None, start_index = None, end_index = None, is_on_plus_strand = False, frame = 0, spec_ids = [], offsets = [], sequence = []):
+    def __init__(self, model = None, chromosome_id = None, start_index = None, end_index = None, is_on_plus_strand = False, frame = 0, spec_ids = [], offsets = [], sequences = []):
         self.model = model
         self.chromosome_id = chromosome_id
         self.start_index = start_index
@@ -28,16 +28,16 @@ class MSA(object):
         self.frame = frame
         self.spec_ids = spec_ids
         self.offsets = offsets
-        self.sequence = sequence
-        self._updated_sequence = True
-        self._coded_sequence = None
+        self.sequences = sequences
+        self._updated_sequences = True
+        self._coded_sequences = None
 
     @property
-    def coded_sequence(self, alphabet="acgt"):
+    def coded_sequences(self, alphabet="acgt"):
 
         # Lazy loading
-        if not self._updated_sequence:
-            return self._coded_sequence
+        if not self._updated_sequences:
+            return self._coded_sequences
 
         # whether the sequences and coding alphabet shall be flipped
         inv_coef = -1 if not self.is_on_plus_strand else 1
@@ -45,18 +45,18 @@ class MSA(object):
         # translated alphabet as indices of (inversed) alphabet
         translated_alphabet = dict(zip( alphabet, range(len(alphabet))[::inv_coef] ))
 
-        # view the sequence as a numpy array
-        ca = np.array([list(S[::inv_coef]) for S in self.sequence])
+        # view the sequences as a numpy array
+        ca = np.array([list(S[::inv_coef]) for S in self.sequences])
 
         # translate the list of sequences and convert it to a numpy matrix
         # non-alphabet characters are replaced by -1
-        self._coded_sequence = np.vectorize(lambda c: translated_alphabet.get(c, -1))(ca)
+        self._coded_sequences = np.vectorize(lambda c: translated_alphabet.get(c, -1))(ca)
 
         # Update lazy loading
-        self._updated_sequence = False
+        self._updated_sequences = False
 
 
-        return self._coded_sequence
+        return self._coded_sequences
 
     @property
     def codon_alignment(self, alphabet='acgt', gap_symbols='-'):
@@ -65,7 +65,7 @@ class MSA(object):
         c = 3
 
         # the list of sequences that should be codon aligned
-        sequences = self.sequence
+        sequences = self.sequences
 
         # TODO: ask whether this is the right behavior
         if not self.is_on_plus_strand:
@@ -77,15 +77,15 @@ class MSA(object):
         return tuple_alignment(sequences, gap_symbols, frame=self.frame, tuple_length=c)
 
     @property
-    def sequence(self):
-        return self._sequence
-    @sequence.setter
-    def sequence(self, value):
-        self._sequence = value
-        self._updated_sequence = True
+    def sequences(self):
+        return self._sequences
+    @sequences.setter
+    def sequences(self, value):
+        self._sequences = value
+        self._updated_sequences = True
 
     def __str__(self):
-        return f"{{\n\tmodel: {self.model},\n\tchromosome_id: {self.chromosome_id},\n\tstart_index: {self.start_index},\n\tend_index: {self.end_index},\n\tis_on_plus_strand: {self.is_on_plus_strand},\n\tframe: {self.frame},\n\tspec_ids: {self.spec_ids},\n\toffsets: {self.offsets},\n\tsequence: {self.sequence},\n\tcoded_sequence: {self.coded_sequence},\n\tcodon_alignment: {self.codon_alignment}\n}}"
+        return f"{{\n\tmodel: {self.model},\n\tchromosome_id: {self.chromosome_id},\n\tstart_index: {self.start_index},\n\tend_index: {self.end_index},\n\tis_on_plus_strand: {self.is_on_plus_strand},\n\tframe: {self.frame},\n\tspec_ids: {self.spec_ids},\n\toffsets: {self.offsets},\n\tsequences: {self.sequences},\n\tcoded_sequences: {self.coded_sequences},\n\tcodon_alignment: {self.codon_alignment}\n}}"
     
 
 
@@ -322,7 +322,7 @@ def import_augustus_training_file(paths, undersample_neg_by_factor = 1., alphabe
                             frame = int(oe_data[6][0]),
                             spec_ids = [],
                             offsets = [],
-                            sequence = []
+                            sequences = []
                     )
                     
                     training_data.append(msa)
@@ -336,7 +336,7 @@ def import_augustus_training_file(paths, undersample_neg_by_factor = 1., alphabe
                     entry.offsets.append(int(slice_data[1]))
                     padded_sequence = slice_data[3][:-1]
                     sequence = padded_sequence[margin_width:-margin_width] if margin_width > 0 else padded_sequence
-                    entry.sequence.append(sequence)
+                    entry.sequences.append(sequence)
 
                     
                 # retrieve the number of species
@@ -435,7 +435,7 @@ def import_phylocsf_training_file(paths, undersample_neg_by_factor = 1., referen
                             frame = int(header_fields[2][-1]),
                             spec_ids = ref_ids,
                             offsets = [],
-                            sequence = sequences
+                            sequences = sequences
                     )
 
 
@@ -458,7 +458,7 @@ def write_example(imodel, num_species, iconfigurations, leaf_configuration, tfwr
         tfwriter (TFRecordWriter): Target to which the example shall be written.
     """
     
-    # Infer the length of the sequence
+    # Infer the length of the sequences
     sequence_length = leaf_configuration.shape[1]
 
     s = alphabet_card
@@ -566,7 +566,7 @@ def persist_as_tfrecord(dataset, out_dir, basename, num_species, splits=None, sp
             # context features to be saved
             iconfigurations = msa.spec_ids
 
-            leaf_configuration = msa.coded_sequence
+            leaf_configuration = msa.coded_sequences
                     
             # TODO: Max and min length
             
