@@ -16,6 +16,7 @@ import itertools
 import json
 import zipfile
 import io
+from . import onehot_codon_encoder as oce
 
 
 class MSA(object):
@@ -46,11 +47,11 @@ class MSA(object):
         translated_alphabet = dict(zip( alphabet, range(len(alphabet))[::inv_coef] ))
 
         # view the sequences as a numpy array
-        ca = np.array([list(S[::inv_coef]) for S in self.sequences])
+        ca = [S[::inv_coef] for S in self.sequences]
 
         # translate the list of sequences and convert it to a numpy matrix
         # non-alphabet characters are replaced by -1
-        self._coded_sequences = np.vectorize(lambda c: translated_alphabet.get(c, -1))(ca)
+        self._coded_sequences = oce.OnehotCodonEncoder.encode(ca, codon_length=1, use_bucket_alphabet=False)
 
         # Update lazy loading
         self._updated_sequences = False
@@ -59,7 +60,7 @@ class MSA(object):
         return self._coded_sequences
 
     @property
-    def codon_alignment(self, alphabet='acgt', gap_symbols='-'):
+    def codon_aligned_sequences(self, alphabet='acgt', gap_symbols='-'):
 
         # size of a codon in characters
         c = 3
@@ -67,7 +68,7 @@ class MSA(object):
         # the list of sequences that should be codon aligned
         sequences = self.sequences
 
-        # TODO: ask whether this is the right behavior
+        # reverse complement if not on plus strand
         if not self.is_on_plus_strand:
             rev_alphabet = alphabet[::-1]
             tbl = str.maketrans(alphabet, rev_alphabet)
@@ -75,6 +76,13 @@ class MSA(object):
 
 
         return tuple_alignment(sequences, gap_symbols, frame=self.frame, tuple_length=c)
+
+    @property
+    def coded_codon_aligned_sequences(self, alphabet='acgt', gap_symbols='-'):
+
+        ca = self.codon_aligned_sequences
+
+        return oce.OnehotCodonEncoder.encode(ca,codon_length=3, use_bucket_alphabet=False)
 
     @property
     def sequences(self):
@@ -85,7 +93,7 @@ class MSA(object):
         self._updated_sequences = True
 
     def __str__(self):
-        return f"{{\n\tmodel: {self.model},\n\tchromosome_id: {self.chromosome_id},\n\tstart_index: {self.start_index},\n\tend_index: {self.end_index},\n\tis_on_plus_strand: {self.is_on_plus_strand},\n\tframe: {self.frame},\n\tspec_ids: {self.spec_ids},\n\toffsets: {self.offsets},\n\tsequences: {self.sequences},\n\tcoded_sequences: {self.coded_sequences},\n\tcodon_alignment: {self.codon_alignment}\n}}"
+        return f"{{\n\tmodel: {self.model},\n\tchromosome_id: {self.chromosome_id},\n\tstart_index: {self.start_index},\n\tend_index: {self.end_index},\n\tis_on_plus_strand: {self.is_on_plus_strand},\n\tframe: {self.frame},\n\tspec_ids: {self.spec_ids},\n\toffsets: {self.offsets},\n\tsequences: {self.sequences},\n\tcoded_sequences: {self.coded_sequences},\n\tcodon_aligned_sequences: {self.codon_aligned_sequences}\n}}"
     
 
 
