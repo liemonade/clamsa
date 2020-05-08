@@ -46,7 +46,7 @@ def file_exists(arg):
 
 def folder_exists_and_is_writable(arg):
     if not os.path.isdir(arg) or not os.access(arg, os.W_OK):
-        raise argparser.ArgumentTypeError(f"The folder  {arg} does not exist or is not writable!")
+        raise argparse.ArgumentTypeError(f"The folder {arg} does not exist or is not writable!")
     return arg
 
 def is_valid_split(arg):
@@ -76,7 +76,7 @@ class Aladdin(object):
 
     def __init__(self):
         parser = argparse.ArgumentParser(
-            usage='''aladdin.py <command> [<args>]
+            usage = '''aladdin.py <command> [<args>]
 
 Use one of the following commands:
    convert    Create an MSA dataset ready for usage in aladdin
@@ -155,13 +155,13 @@ Use one of the following commands:
             T, species = mc.import_augustus_training_file(args.input_files, reference_clades=args.clades, margin_width=10)
             
             #mc.persist_as_tfrecord(T, args.out_dir, args.basename, num_species, splits=args.splits, split_models=None, use_codons=False, use_compression=True, verbose=False)
-            print("Import done. Todo: Write the database. As Debug print the first entry:")
+            print("Import done. Todo: Write the database. For debugging printing the first entry:")
             print(T[0])
 
         if args.in_type == 'phylocsf':
             T, species = mc.import_phylocsf_training_file(args.input_files, reference_clades=args.clades, margin_width=args.margin_width)
 
-            print("Import done. Todo: Write the database. As Debug print the first entry:")
+            print("Import done. Todo: Write the database. For debugging printing the first entry:")
             print(T[0])
                 
 
