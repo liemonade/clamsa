@@ -160,6 +160,10 @@ def tuple_alignment(sequences, gap_symbols='-', frame=0, tuple_length=3):
     # find those multiindices that are in more than one sequence and sort them lexicographically
     I = sorted([i for i in occ if occ[i] > 1])
 
+    # trivial case: there is nothing to align
+    if len(I) == 0:
+        return ['' for s in S]
+
     # calculate a matrix with `len(S)` rows and `len(I)` columns.
     #   if the j-th multindex is present in sequence `i` the entry `(i,j)` of the matrix will be 
     #   a substring of length `tuple_length` corresponding to the characters at the positions 
@@ -455,69 +459,77 @@ def import_phylocsf_training_file(paths, undersample_neg_by_factor = 1., referen
 
 
 
-def write_example(imodel, num_species, iconfigurations, leaf_configuration, tfwriter, alphabet_card = 4, verbose = False):
-    """Write one-hot encoded MSA as an entry into a  Tensorflow-Records file.
+
+# TODO: Delete this function when debug is done. It is now directly implemented in the persistence function
+def write_msa(msa, species, tfwriter, use_codons=True, verbose=False):
+    """Write a coded MSA (either as sequence of nucleotides or codons) as an entry into a  Tensorflow-Records file.
     
     Args:
-        imodel (int): Model ID. In our convention: 0 - non-coding region, 1 - coding region
-        num_species (int): Total number of species
-        iconfiguration (List[int]): Indices of species occuring in the MSA.
-        leaf_configuration (numpy.array): MSA
+        msa (MSA): Sequence that is to be persisted
+        use_codons (bool): Whether one should write onehot encoded sequences of codons which are codon-aligned 
+                           or a onehot encoded sequences of nucleotides
         tfwriter (TFRecordWriter): Target to which the example shall be written.
+        verbose (bool): Whether debug messages shall be written
     """
     
+
+    # Use the correct onehot encded sequences
+    coded_sequences = msa.coded_codon_aligned_sequences if use_codons else msa.coded_sequences
+    
     # Infer the length of the sequences
-    sequence_length = leaf_configuration.shape[1]
+    sequence_length = len(coded_sequences[1])
+    
 
-    s = alphabet_card
+    # cardinality of the alphabet that has been onehot-encoded
+    s = coded_sequences.shape[-1]
+    
+    # get the id of the used clade and leaves inside this clade
+    clade_id = msa.spec_ids[0][0]
+    num_species = len(species[clade_id])
+    leave_ids = [l for (c,l) in msa.spec_ids]
     
     
-    # one-hot encoding of characters
-    leaf_onehot = np.ones((num_species, sequence_length, s), dtype = np.int32)
-    leaf_onehot[iconfigurations, ...] = \
-        ((np.arange(s) == leaf_configuration[:, :, None]) | # an actual codon
-         (None == leaf_configuration[:, :, None]) # contains at least one unknown character
-        ).astype(int)
-    p_leaf_onehot = leaf_onehot.tostring()
+    # embed the coded sequences into a full MSA for the whole leaf-set of the given clade
+    S = np.ones((num_species, sequence_length, s), dtype = np.int32)
+    S[leave_ids,...] = coded_sequences
+    
+    # make the shape conform with the usual way datasets are structured,
+    # namely the columns of the MSA are the examples and should therefore
+    # be the first axis
+    S = np.transpose(S, (1,0,2))
+    
 
-    if verbose:
-        np.set_printoptions(threshold = np.inf)
-        print(f"model: {imodel}")
-        print(f"iconfiguration: {iconfigurations}")
-        print(f"sequence_length: {sequence_length}")
-        print(f"leaf_onehot.shape: {leaf_onehot.shape}")
-        print(f"leaf_onehot[iconfigurations[1],...]: {leaf_onehot[iconfigurations[1], ...]}")
 
-    # TODO loeschen
-    iconfigurations = np.arange(num_species).tolist()
-
-    # put the bytes in context_list and feature_list
-    ## save imodel and iconfigurations in context list 
-    context_lists = tf.train.Features(feature = {
-        'model': tf.train.Feature(int64_list = tf.train.Int64List(value = [imodel])),
-        'configurations': tf.train.Feature(int64_list = tf.train.Int64List(value = iconfigurations)),
+    # use model (`0` or `1`), the id of the clade and length of the sequences
+    # as context features
+    msa_context = tf.train.Features(feature = {
+        'model': tf.train.Feature(int64_list = tf.train.Int64List(value = [msa.model])),
+        'clade_id': tf.train.Feature(int64_list = tf.train.Int64List(value = [clade_id])),
         'sequence_length': tf.train.Feature(int64_list = tf.train.Int64List(value = [sequence_length])),
     })
 
-    ## save p_leaf_onehot as a one element sequence in feature_lists
-    leaf_onehot_list_pickle = [tf.train.Feature(bytes_list = tf.train.BytesList(value = [p_leaf_onehot]))]
-
-    feature_lists = tf.train.FeatureLists(feature_list = {
-        'sequence_onehot': tf.train.FeatureList(feature = leaf_onehot_list_pickle)
+    ## save `S` as a one element byte-sequence in feature_lists
+    sequence_feature = [tf.train.Feature(bytes_list = tf.train.BytesList(value = [S.tostring()]))]
+    msa_feature_lists = tf.train.FeatureLists(feature_list = {
+        'sequence_onehot': tf.train.FeatureList(feature = sequence_feature)
     })
 
-    # create the SequenceExample
-    SeqEx = tf.train.SequenceExample(
-        context = context_lists,
-        feature_lists = feature_lists
-        )
-    SeqEx_serialized = SeqEx.SerializeToString()
-
-    tfwriter.write(SeqEx_serialized)
-
     
-# TODO: Implement use_codon feature
-def persist_as_tfrecord(dataset, out_dir, basename, num_species, splits=None, split_models=None, use_codons=False, use_compression=True, verbose=False):
+    # create the SequenceExample
+    msa_sequence_example = tf.train.SequenceExample(
+        context = msa_context,
+        feature_lists = msa_feature_lists
+    )
+
+    # write the serialized example to the TFWriter
+    msa_serialized = msa_sequence_example.SerializeToString()
+    tfwriter.write(msa_serialized)
+
+
+
+
+
+def persist_as_tfrecord(dataset, out_dir, basename, species, splits=None, split_models=None, use_codons=False, use_compression=True, verbose=False):
 
     # Importing Tensorflow takes a while.
     # Therefore to not slow down the rest 
@@ -525,6 +537,9 @@ def persist_as_tfrecord(dataset, out_dir, basename, num_species, splits=None, sp
     import tensorflow as tf
 
     options = tf.io.TFRecordOptions(compression_type = 'GZIP') if use_compression else None
+
+    # count the sequences that have been skipped
+    num_skipped = 0
 
     # Prepare for iteration
     splits = splits if splits != None else {None: 1.0}
@@ -580,20 +595,78 @@ def persist_as_tfrecord(dataset, out_dir, basename, num_species, splits=None, sp
             
             model = msa.model
 
+            # retrieve the wanted tfwriter for this MSA
             s = np.digitize(i, split_bins)
-            m = split_models.index(model) if model in split_models else 0
-            
+            m = split_models.index(model) if model in split_models else 0 
             tfwriter = tfwriters[s][m]
 
-            write_example(model, num_species, iconfigurations, leaf_configuration, tfwriter, alphabet_card = 4,  verbose = verbose)
-                
-            if verbose:
-                print(f"leaf_configuration[1,...]: {leaf_configuration.shape} {leaf_configuration[1,...]}")
-                ichar_test = np.random.randint(0, sequence_length)
-                print("ichar_test:", ichar_test)
-                print(f"Sample of the conversion:")
-                print(f"\tModel: {imodel}")
-                print(f"\tSequence Length: {sequence_length}")
-                print(f"\tConfiguration: {iconfigurations}")
-                print(f"\tPosition {ichar_test} character of the sequence: {leaf_configuration[:, ichar_test]}")
 
+            #Write a coded MSA (either as sequence of nucleotides or codons) as an entry into a  Tensorflow-Records file.
+            # in order to do so we need to setup the proper format for `tf.train.SequenceExample`
+
+            # Use the correct onehot encded sequences
+            coded_sequences = msa.coded_codon_aligned_sequences if use_codons else msa.coded_sequences
+
+            # Infer the length of the sequences
+            sequence_length = coded_sequences.shape[1]
+
+            if sequence_length == 0:
+                num_skipped = num_skipped + 1
+                continue
+
+
+            # cardinality of the alphabet that has been onehot-encoded
+            s = coded_sequences.shape[-1]
+
+            # get the id of the used clade and leaves inside this clade
+            clade_id = msa.spec_ids[0][0]
+            num_species = len(species[clade_id])
+            leave_ids = [l for (c,l) in msa.spec_ids]
+
+
+            # embed the coded sequences into a full MSA for the whole leaf-set of the given clade
+            S = np.ones((num_species, sequence_length, s), dtype = np.int32)
+            S[leave_ids,...] = coded_sequences
+
+            # make the shape conform with the usual way datasets are structured,
+            # namely the columns of the MSA are the examples and should therefore
+            # be the first axis
+            S = np.transpose(S, (1,0,2))
+
+
+
+            # use model (`0` or `1`), the id of the clade and length of the sequences
+            # as context features
+            msa_context = tf.train.Features(feature = {
+                'model': tf.train.Feature(int64_list = tf.train.Int64List(value = [msa.model])),
+                'clade_id': tf.train.Feature(int64_list = tf.train.Int64List(value = [clade_id])),
+                'sequence_length': tf.train.Feature(int64_list = tf.train.Int64List(value = [sequence_length])),
+                })
+
+            ## save `S` as a one element byte-sequence in feature_lists
+            sequence_feature = [tf.train.Feature(bytes_list = tf.train.BytesList(value = [S.tostring()]))]
+            msa_feature_lists = tf.train.FeatureLists(feature_list = {
+                'sequence_onehot': tf.train.FeatureList(feature = sequence_feature)
+                })
+
+
+            # create the SequenceExample
+            msa_sequence_example = tf.train.SequenceExample(
+                    context = msa_context,
+                    feature_lists = msa_feature_lists
+                    )
+
+            # write the serialized example to the TFWriter
+            msa_serialized = msa_sequence_example.SerializeToString()
+            tfwriter.write(msa_serialized)
+                
+            #if verbose:
+            #    print(f"leaf_configuration[1,...]: {leaf_configuration.shape} {leaf_configuration[1,...]}")
+            #    ichar_test = np.random.randint(0, sequence_length)
+            #    print("ichar_test:", ichar_test)
+            #    print(f"Sample of the conversion:")
+            #    print(f"\tModel: {imodel}")
+            #    print(f"\tSequence Length: {sequence_length}")
+            #    print(f"\tConfiguration: {iconfigurations}")
+            #    print(f"\tPosition {ichar_test} character of the sequence: {leaf_configuration[:, ichar_test]}")
+    return num_skipped

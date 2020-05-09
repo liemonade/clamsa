@@ -7,6 +7,7 @@ import configparser
 import json
 import numbers
 import newick
+from pathlib import Path
 
 import utilities.msa_converter as mc
 
@@ -113,8 +114,12 @@ Use one of the following commands:
                 metavar='OUTPUT_FOLDER',
                 help='Folder in which the converted MSA database should be stored. By default the folder "msa/" is used.',
                 default='msa/',
-                type=folder_exists_and_is_writable,
-                nargs=1)
+                type=folder_exists_and_is_writable)
+        
+        
+        parser.add_argument('--basename',
+                metavar = 'BASENAME',
+                help = 'The base name of the output files to be generated. By default a concatination of the input files is used.')
 
         parser.add_argument('--to_phylocsf',
                 help='Specifies that the MSA database should be converted to a format compatible with training and evaluating in PhyloCSF.',
@@ -136,8 +141,7 @@ Use one of the following commands:
                 help='Whether the input MSAs are padded by a MARGIN_WIDTH necleotides on both sides.',
                 metavar='MARGIN_WIDTH',
                 type=int,
-                default=0,
-                nargs=1)
+                default=0)
 
         parser.add_argument('--undersample_negative',
                 help='Undersample the negative samples (Model ID 0) of the input file(s). Any given negative sample will only be imported with a probability of 1/RATIO',
@@ -145,24 +149,55 @@ Use one of the following commands:
                 nargs=1,
                 type=float)
 
+        parser.add_argument('--use_codons', 
+                help = 'The MSAs will be exported as codon-aligned codon sequences instead of nucleotide alignments.',
+                action = 'store_true')
+
+        parser.add_argument('--use_compression',
+                help = 'Whether the output files should be compressed using GZIP or not. By default compression is used.',
+                action = 'store_false')
+
+        parser.add_argument('--verbose',
+                help = 'Whether some logging of the import and export should be performed.',
+                action = 'store_true')
+
+
+        parser.add_argument('--split_models',
+                help = 'Whether the dataset should be divided into multiple chunks depending on the models of the sequences. By default no split is performed. Say one wants to split models 0 and 1 then one may achive this by "--split_models 0 1".',
+                type = int,
+                nargs = '+')
+
+        # TODO: Split_models argument
 
 
 
         # ignore the initial args specifying the command
         args = parser.parse_args(sys.argv[2:])
 
+        if args.basename == None:
+            args.basename = '_'.join(Path(p).stem for p in args.input_files)
+
+
         if args.in_type == 'augustus':
-            T, species = mc.import_augustus_training_file(args.input_files, reference_clades=args.clades, margin_width=10)
-            
-            #mc.persist_as_tfrecord(T, args.out_dir, args.basename, num_species, splits=args.splits, split_models=None, use_codons=False, use_compression=True, verbose=False)
-            print("Import done. Todo: Write the database. As Debug print the first entry:")
-            print(T[0])
+            T, species = mc.import_augustus_training_file(args.input_files, reference_clades=args.clades, margin_width=args.margin_width)
 
         if args.in_type == 'phylocsf':
             T, species = mc.import_phylocsf_training_file(args.input_files, reference_clades=args.clades, margin_width=args.margin_width)
 
-            print("Import done. Todo: Write the database. As Debug print the first entry:")
-            print(T[0])
+        # If some MSAs have been imported sucessfully we can store them in tfrecords
+        if len(T) > 0:
+
+            num_skipped = mc.persist_as_tfrecord(dataset=T,
+                    out_dir = args.out_dir,
+                    basename = args.basename,
+                    species = species,
+                    splits = args.splits,
+                    split_models = args.split_models,
+                    use_codons = args.use_codons,
+                    use_compression = args.use_compression,
+                    verbose = args.verbose)
+
+            print(f'The dataset have sucessfully been saved. {num_skipped} entries have been skipped due to beeing to short.')
                 
 
 def main():
