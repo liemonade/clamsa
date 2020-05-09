@@ -47,7 +47,7 @@ def file_exists(arg):
 
 def folder_exists_and_is_writable(arg):
     if not os.path.isdir(arg) or not os.access(arg, os.W_OK):
-        raise argparser.ArgumentTypeError(f"The folder  {arg} does not exist or is not writable!")
+        raise argparse.ArgumentTypeError(f"The folder {arg} does not exist or is not writable!")
     return arg
 
 def is_valid_split(arg):
@@ -77,7 +77,7 @@ class Aladdin(object):
 
     def __init__(self):
         parser = argparse.ArgumentParser(
-            usage='''aladdin.py <command> [<args>]
+            usage = '''aladdin.py <command> [<args>]
 
 Use one of the following commands:
    convert    Create an MSA dataset ready for usage in aladdin
@@ -198,7 +198,6 @@ Use one of the following commands:
                     verbose = args.verbose)
 
             print(f'The dataset have sucessfully been saved. {num_skipped} entries have been skipped due to beeing to short.')
-                
 
 def main():
 
