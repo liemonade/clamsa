@@ -167,7 +167,6 @@ Use one of the following commands:
                 type = int,
                 nargs = '+')
 
-        # TODO: Split_models argument
 
 
 

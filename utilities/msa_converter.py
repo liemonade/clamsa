@@ -16,7 +16,7 @@ import itertools
 import json
 import zipfile
 import io
-from . import onehot_codon_encoder as oce
+from . import onehot_tuple_encoder as ote
 
 
 class MSA(object):
@@ -51,7 +51,7 @@ class MSA(object):
 
         # translate the list of sequences and convert it to a numpy matrix
         # non-alphabet characters are replaced by -1
-        self._coded_sequences = oce.OnehotCodonEncoder.encode(ca, codon_length=1, use_bucket_alphabet=False)
+        self._coded_sequences = ote.OnehotTupleEncoder.encode(ca, tuple_length=1, use_bucket_alphabet=False)
 
         # Update lazy loading
         self._updated_sequences = False
@@ -82,7 +82,7 @@ class MSA(object):
 
         ca = self.codon_aligned_sequences
 
-        return oce.OnehotCodonEncoder.encode(ca,codon_length=3, use_bucket_alphabet=False)
+        return ote.OnehotTupleEncoder.encode(ca,tuple_length=3, use_bucket_alphabet=False)
 
     @property
     def sequences(self):
@@ -670,3 +670,5 @@ def persist_as_tfrecord(dataset, out_dir, basename, species, splits=None, split_
             #    print(f"\tConfiguration: {iconfigurations}")
             #    print(f"\tPosition {ichar_test} character of the sequence: {leaf_configuration[:, ichar_test]}")
     return num_skipped
+
+
