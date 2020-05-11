@@ -156,6 +156,10 @@ Use one of the following commands:
         parser.add_argument('--use_compression',
                 help = 'Whether the output files should be compressed using GZIP or not. By default compression is used.',
                 action = 'store_false')
+        
+        parser.add_argument('--subsample_lengths',
+                help = 'Negative examples of overrepresented length are undersampled so that the length distributions of positives and negatives are similar. Defaults to false.',
+                action = 'store_true')
 
         parser.add_argument('--verbose',
                 help = 'Whether some logging of the import and export should be performed.',
@@ -167,21 +171,21 @@ Use one of the following commands:
                 type = int,
                 nargs = '+')
 
-
-
-
         # ignore the initial args specifying the command
         args = parser.parse_args(sys.argv[2:])
 
         if args.basename == None:
             args.basename = '_'.join(Path(p).stem for p in args.input_files)
 
-
         if args.in_type == 'augustus':
             T, species = mc.import_augustus_training_file(args.input_files, reference_clades=args.clades, margin_width=args.margin_width)
 
         if args.in_type == 'phylocsf':
             T, species = mc.import_phylocsf_training_file(args.input_files, reference_clades=args.clades, margin_width=args.margin_width)
+        
+        # harmonize the length distributions if requested
+        if (args.subsample_lengths):
+            T = mc.subsample_lengths(T)
 
         # If some MSAs have been imported sucessfully we can store them in tfrecords
         if len(T) > 0:
@@ -196,7 +200,7 @@ Use one of the following commands:
                     use_compression = args.use_compression,
                     verbose = args.verbose)
 
-            print(f'The dataset have sucessfully been saved. {num_skipped} entries have been skipped due to beeing to short.')
+            print(f'The dataset have sucessfully been saved. {num_skipped} entries have been skipped due to beeing too short.')
 
 def main():
 

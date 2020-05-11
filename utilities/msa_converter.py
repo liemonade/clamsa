@@ -458,7 +458,19 @@ def import_phylocsf_training_file(paths, undersample_neg_by_factor = 1., referen
     return training_data, species
 
 
-
+def subsample_lengths(msas):
+    """ Subsample the [short] negatives so the length distribution is very similar to that of the positives.
+     
+    Args:
+        msas: an input list of MSAs 
+    Returns:
+        filtered_msas: a subset of the input
+    """
+    filtered_msas = msas
+    print ("EMPTY PLACEHOLDER\nSubsampling based on lengths has reduced the number of alignents from",
+           len(msas), "to", len(filtered_msas))
+    return filtered_msas
+    
 
 # TODO: Delete this function when debug is done. It is now directly implemented in the persistence function
 def write_msa(msa, species, tfwriter, use_codons=True, verbose=False):
@@ -567,9 +579,15 @@ def persist_as_tfrecord(dataset, out_dir, basename, species, splits=None, split_
     split_bins = np.cumsum(split_totals)
 
     # Generate target file name based on chosen split and model
-    target_path = lambda split_name, model: f"{out_dir}{basename}{'-'+split_name if split_name != None else ''}{'-m'+str(model) if model != None else ''}.tfrecord{'.gz' if use_compression else ''}"
-
-
+    
+    target_path = lambda split_name, model: \
+        os.path.join(out_dir, # this appends a slash if the user did not
+                     basename
+                     + ('-' + split_name if split_name != None else '')
+                     + ('-m' + str(model) if model != None else '')
+                     + '.tfrecord'
+                     + ('.gz' if use_compression else ''))
+    
     with ExitStack() as stack:
     
         #file_indices = [(split_name, model, ) for ]
