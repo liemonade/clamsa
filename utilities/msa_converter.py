@@ -16,6 +16,7 @@ import itertools
 import json
 import zipfile
 import io
+import matplotlib.pyplot as plt
 from . import onehot_tuple_encoder as ote
 
 
@@ -32,6 +33,7 @@ class MSA(object):
         self.sequences = sequences
         self._updated_sequences = True
         self._coded_sequences = None
+
 
     @property
     def coded_sequences(self, alphabet="acgt"):
@@ -55,7 +57,6 @@ class MSA(object):
 
         # Update lazy loading
         self._updated_sequences = False
-
 
         return self._coded_sequences
 
@@ -87,6 +88,14 @@ class MSA(object):
     @property
     def sequences(self):
         return self._sequences
+
+    def alilen(self):
+        # TODO: is somewhere checked that all rows have the same length?
+        if (self._coded_sequences is not None):
+            return len(self._coded_sequences[0])
+        else:
+            return len(self._sequences[0])
+
     @sequences.setter
     def sequences(self, value):
         self._sequences = value
@@ -184,13 +193,13 @@ def tuple_alignment(sequences, gap_symbols='-', frame=0, tuple_length=3):
 
 def leave_order(path, use_alternatives=False):
     """
-        Find the leave names in a Newick file and return them in the order specified by the file
+        Find the leaf names in a Newick file and return them in the order specified by the file
         
         Args:
             path (str): Path to the Newick file
         
         Returns:
-            List[str]: Leave names encountered in the file
+            List[str]: Leaf names encountered in the file
     """
     
     # regex that finds leave nodes in a newick string
@@ -458,16 +467,98 @@ def import_phylocsf_training_file(paths, undersample_neg_by_factor = 1., referen
     return training_data, species
 
 
-def subsample_lengths(msas):
-    """ Subsample the [short] negatives so the length distribution is very similar to that of the positives.
-     
+def plot_lenhist(msas, id = "unfiltered"):
+    """ plot the length distribution of classes (models) y=0, and y=1 to a pdf
+    Returns:
+        mlen  : array of alignment lengths
+        labels: array of labels (= classes / model indices) 
+    """
+    num_alis = len(msas)
+    mlen = np.zeros(num_alis, dtype = np.int32)
+    labels = np.zeros(num_alis, dtype = np.int32)
+    for i, msa in enumerate(msas):
+        mlen[i] = msa.alilen()
+        labels[i] = msa.model
+    
+    fig, ax = plt.subplots(1, 2, figsize = (24, 8))
+    colors = ["red", "green"]
+    for label in [0, 1]:
+        these_len = mlen[labels == label]
+        ax[label].hist(these_len, bins = 200, range = [0, 2000], density = True, color = colors[label])
+        ax[label].set_title("length distribution " + id + " \ny=" + str(label) + 
+                           " n=" + str(np.sum(labels == label)) + " mean=" + str(np.round(np.mean(these_len), 1)))
+    
+    fig.savefig("lendist-oe-" + id + ".pdf", format = 'pdf')
+    return [mlen, labels]
+
+def subsample_lengths(msas, max_sequence_length = 14999, min_sequence_length = 1):
+    """ Subsample the [short] negatives so that
+        the length distribution is very similar to that of the positives.
+        Negative examples (model=0) of a length that is overrepresented compared to the
+        frequency of that length in positive examples (model=1) are removed at random.
+        Also, filter out 'alignments' with fewer than 2 sequences.
     Args:
-        msas: an input list of MSAs 
+        msas: an input list of MSAs
+        max_sequence_length: upper bound on number of codons
+        min_sequence_length: lower bound on number of codons
     Returns:
         filtered_msas: a subset of the input
     """
-    filtered_msas = msas
-    print ("EMPTY PLACEHOLDER\nSubsampling based on lengths has reduced the number of alignents from",
+    ### compute and plot lengths and labels
+    msas_in_range = []
+    num_dropped_shallow = 0
+    for msa in msas:
+        if len(msa.sequences) < 2:
+            num_dropped_shallow += 1
+            continue
+        length = msa.alilen()
+        if (length >= min_sequence_length and length <= max_sequence_length):
+            msas_in_range.append(msa)
+    if (num_dropped_shallow > 0):
+        print(f"{num_dropped_shallow} MSAs were dropped as they had fewer than 2 rows.")
+    mlen, labels = plot_lenhist(msas_in_range)
+    assert (len(mlen) == len(labels) and len(mlen) == len(msas_in_range)), "length inconsistency"
+    
+    ### compute probabilities for subsampling
+    max_subsample = 2001 # Don't apply subsampling for longer alignments, there typically are too few.
+    distr = np.zeros([2, max_subsample], dtype = float)
+
+    for i, slen in enumerate(mlen):
+        if (slen < max_subsample):
+            label = labels[i]
+            distr[label, slen] += 1.0
+
+    ratio = distr[1] / np.maximum(distr[0], 1.0) # overrepresentation ratio, for each length
+    # as the sample has random variation, the ratios are smoothed before using them 
+    ratio_smooth = np.zeros_like(ratio)
+
+    def radius(slen):
+        """ The offsets to the averaging interval, equal offsets leads to systematic overestimation
+            Up to a length of 100 there is no smoothing. Beyond that, it is increasing.
+        """
+        return [int(.03 * max(slen - 100, 0)), int(.06 * max(slen - 100, 0))]
+
+    for slen in range(1, max_subsample):
+        r1, r2 = radius(slen)
+        a = max(slen - r1, 0)
+        b = min(slen + r2, max_subsample - 1)
+        ratio_smooth[slen] = np.mean(ratio[a : b + 1])
+
+    ratio_smooth /= np.max(ratio_smooth)
+
+    fig, ax = plt.subplots(figsize = (6, 6))
+    ax.plot(ratio_smooth, "b-")
+    ax.set_title("length distribution subsampling probabilities")
+    fig.savefig("subsampling-probs.pdf", format = 'pdf')
+
+    filtered_msas = []
+    for i, msa in enumerate(msas_in_range):
+        slen = msa.alilen() 
+        if msa.model != 0 or slen >= max_subsample or random.random() < ratio_smooth[slen]:
+             filtered_msas.append(msa)
+
+    plot_lenhist(filtered_msas, id = "subsampled")
+    print ("Subsampling based on lengths has reduced the number of alignents from",
            len(msas), "to", len(filtered_msas))
     return filtered_msas
     
