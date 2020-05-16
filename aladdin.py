@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import sys
 import os
@@ -131,7 +131,7 @@ Use one of the following commands:
                 type=is_valid_split)
 
         # TODO: implement newick check
-        parser.add_argument('--clades',
+        parser.add_argument('--clades', 
                 help='Provide a paths CLADES to clade file(s) in Newick (.nwk) format. The species found in the input file(s) are assumed to be contained in the leave set of exactly one these clades. If so, the sequences will be aligned in the particular order specified in the clade. The names of the species in the clade(s) and in the input file(s) need to coincide.',
                 metavar='CLADES',
                 type=file_exists,
@@ -143,11 +143,10 @@ Use one of the following commands:
                 type=int,
                 default=0)
 
-        parser.add_argument('--undersample_negative',
-                help='Undersample the negative samples (Model ID 0) of the input file(s). Any given negative sample will only be imported with a probability of 1/RATIO',
-                metavar='RATIO',
-                nargs=1,
-                type=float)
+        parser.add_argument('--ratio_neg_to_pos',
+                help = 'Undersample the negative samples (Model ID 0) or positive examples (Model ID 1) of the input file(s) to achieve a ratio of RATIO negative per positive example.',
+                metavar = 'RATIO',
+                type = float)
 
         parser.add_argument('--use_codons', 
                 help = 'The MSAs will be exported as codon-aligned codon sequences instead of nucleotide alignments.',
@@ -184,8 +183,12 @@ Use one of the following commands:
             T, species = mc.import_phylocsf_training_file(args.input_files, reference_clades=args.clades, margin_width=args.margin_width)
         
         # harmonize the length distributions if requested
-        if (args.subsample_lengths):
-            T = mc.subsample_lengths(T)
+        if args.subsample_lengths:
+            T = mc.subsample_lengths(T, args.use_codons)
+        
+        # achieve the requested ratio of negatives to positives
+        if args.ratio_neg_to_pos:
+            T = mc.subsample_labels(T, args.ratio_neg_to_pos)
 
         # If some MSAs have been imported sucessfully we can store them in tfrecords
         if len(T) > 0:

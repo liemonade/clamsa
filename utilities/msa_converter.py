@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import gzip
 import regex as re
 import random
@@ -89,12 +90,15 @@ class MSA(object):
     def sequences(self):
         return self._sequences
 
-    def alilen(self):
+    def alilen(self, use_codons = False):
         # TODO: is somewhere checked that all rows have the same length?
         if (self._coded_sequences is not None):
-            return len(self._coded_sequences[0])
+            length = len(self._coded_sequences[0])
         else:
-            return len(self._sequences[0])
+            length = len(self._sequences[0])
+            if use_codons:
+                length = int(length / 3) # may differ from the number of codon columns
+        return length
 
     @sequences.setter
     def sequences(self, value):
@@ -467,7 +471,7 @@ def import_phylocsf_training_file(paths, undersample_neg_by_factor = 1., referen
     return training_data, species
 
 
-def plot_lenhist(msas, id = "unfiltered"):
+def plot_lenhist(msas, use_codons, id = "unfiltered"):
     """ plot the length distribution of classes (models) y=0, and y=1 to a pdf
     Returns:
         mlen  : array of alignment lengths
@@ -477,7 +481,7 @@ def plot_lenhist(msas, id = "unfiltered"):
     mlen = np.zeros(num_alis, dtype = np.int32)
     labels = np.zeros(num_alis, dtype = np.int32)
     for i, msa in enumerate(msas):
-        mlen[i] = msa.alilen()
+        mlen[i] = msa.alilen(use_codons)
         labels[i] = msa.model
     
     fig, ax = plt.subplots(1, 2, figsize = (24, 8))
@@ -491,7 +495,7 @@ def plot_lenhist(msas, id = "unfiltered"):
     fig.savefig("lendist-oe-" + id + ".pdf", format = 'pdf')
     return [mlen, labels]
 
-def subsample_lengths(msas, max_sequence_length = 14999, min_sequence_length = 1):
+def subsample_lengths(msas, use_codons, max_sequence_length = 14999, min_sequence_length = 1):
     """ Subsample the [short] negatives so that
         the length distribution is very similar to that of the positives.
         Negative examples (model=0) of a length that is overrepresented compared to the
@@ -499,6 +503,7 @@ def subsample_lengths(msas, max_sequence_length = 14999, min_sequence_length = 1
         Also, filter out 'alignments' with fewer than 2 sequences.
     Args:
         msas: an input list of MSAs
+        use_codons: msas will be interpreted as a codon alignment
         max_sequence_length: upper bound on number of codons
         min_sequence_length: lower bound on number of codons
     Returns:
@@ -511,12 +516,14 @@ def subsample_lengths(msas, max_sequence_length = 14999, min_sequence_length = 1
         if len(msa.sequences) < 2:
             num_dropped_shallow += 1
             continue
-        length = msa.alilen()
+        length = msa.alilen(use_codons)
+        if use_codons:
+            length = int(length / 3)
         if (length >= min_sequence_length and length <= max_sequence_length):
             msas_in_range.append(msa)
     if (num_dropped_shallow > 0):
         print(f"{num_dropped_shallow} MSAs were dropped as they had fewer than 2 rows.")
-    mlen, labels = plot_lenhist(msas_in_range)
+    mlen, labels = plot_lenhist(msas_in_range, use_codons)
     assert (len(mlen) == len(labels) and len(mlen) == len(msas_in_range)), "length inconsistency"
     
     ### compute probabilities for subsampling
@@ -553,16 +560,58 @@ def subsample_lengths(msas, max_sequence_length = 14999, min_sequence_length = 1
 
     filtered_msas = []
     for i, msa in enumerate(msas_in_range):
-        slen = msa.alilen() 
+        slen = msa.alilen(use_codons)
         if msa.model != 0 or slen >= max_subsample or random.random() < ratio_smooth[slen]:
              filtered_msas.append(msa)
 
-    plot_lenhist(filtered_msas, id = "subsampled")
+    plot_lenhist(filtered_msas, use_codons, id = "subsampled")
     print ("Subsampling based on lengths has reduced the number of alignents from",
            len(msas), "to", len(filtered_msas))
     return filtered_msas
     
+def subsample_labels(msas, ratio):
+    """ Subsample excess examples to that the ratio of negative to positive examples is 'ratio'
+    Args:
+        msas: an input list of MSAs
+        ratio: fraction negatives/positives in the output
+    Returns:
+        filtered_msas: a subset of the input
+    """
+    print ("subsampling with ratio", ratio)
+    
+    if (ratio <= 0.0):
+        print ("Warning: ratio_neg_to_pos must be positive. Skipping the subsampling based on label.")
+        return msas
+    
+    num_neg = num_pos = 0
+    pos_msas = []
+    neg_msas = []
+    filtered_msas = []
+    for msa in msas:
+        if msa.model == 0:
+            num_neg += 1
+            neg_msas.append(msa)
+        elif msa.model == 1:
+            num_pos += 1
+            pos_msas.append(msa)
 
+    if (num_neg > num_pos * ratio): # too many negatives
+        reduced_size = int(num_pos * ratio + 0.5)
+        print ("Reducing number of negatives from", num_neg, "to", reduced_size, ".")
+        filtered_msas.extend(random.sample(neg_msas, reduced_size))
+        filtered_msas.extend(pos_msas)
+    else: # too many positives
+        reduced_size = int(num_neg / ratio + 0.5)
+        print ("Warning: --ratio_neg_to_pos removed positive examples. Maybe you want to omit the parameter to save positves.")
+        print ("Reducing number of positives from ", num_pos, " to ", reduced_size, ".", sep="")
+        filtered_msas.extend(random.sample(pos_msas, reduced_size))
+        filtered_msas.extend(neg_msas)
+
+    print ("Subsample_labels result list length =", len(filtered_msas))
+    random.shuffle(filtered_msas)
+    return filtered_msas
+
+    
 # TODO: Delete this function when debug is done. It is now directly implemented in the persistence function
 def write_msa(msa, species, tfwriter, use_codons=True, verbose=False):
     """Write a coded MSA (either as sequence of nucleotides or codons) as an entry into a  Tensorflow-Records file.
@@ -629,14 +678,10 @@ def write_msa(msa, species, tfwriter, use_codons=True, verbose=False):
     tfwriter.write(msa_serialized)
 
 
-
-
-
 def persist_as_tfrecord(dataset, out_dir, basename, species, splits=None, split_models=None, use_codons=False, use_compression=True, verbose=False):
-
-    # Importing Tensorflow takes a while.
-    # Therefore to not slow down the rest 
-    # of the script it is only imported once used
+    # Importing Tensorflow takes a while. Therefore to not slow down the rest 
+    # of the script it is only imported once used.
+    print ("Writing to tfrecords.")
     import tensorflow as tf
 
     options = tf.io.TFRecordOptions(compression_type = 'GZIP') if use_compression else None
@@ -655,13 +700,12 @@ def persist_as_tfrecord(dataset, out_dir, basename, species, splits=None, split_
         raise ValueError("The values of the dict `splits` must be numbers. But it is given by {splits}")
 
     # Convert relative numbers to absolute numbers
+    random.shuffle(dataset)
     n_data = len(dataset)
     to_total = lambda x: int(abs(x) * n_data) if isinstance(x, float) else abs(x)
     split_totals = np.array([to_total(x) for x in list(splits.values())])
 
     n_wanted = sum(split_totals)
-
-    # If the wanted number exceeds the total of the dataset
     # rescale accordindly
     if n_wanted > n_data:
         split_totals = split_totals * (n_data / n_wanted)
@@ -686,8 +730,8 @@ def persist_as_tfrecord(dataset, out_dir, basename, species, splits=None, split_
                 stack.enter_context(tf.io.TFRecordWriter(target_path(sn,m), options = options))
             for m in split_models] for sn in splits]
 
-        n_written = np.zeros_like(split_totals)
-
+        n_written = np.zeros([len(splits), len(split_models)])
+        
         for i in tqdm(range(n_wanted), desc="Writing dataset", unit=" MSA"):
 
             msa = dataset[i]
@@ -708,7 +752,7 @@ def persist_as_tfrecord(dataset, out_dir, basename, species, splits=None, split_
             s = np.digitize(i, split_bins)
             m = split_models.index(model) if model in split_models else 0 
             tfwriter = tfwriters[s][m]
-
+            n_written[s][m] += 1
 
             #Write a coded MSA (either as sequence of nucleotides or codons) as an entry into a  Tensorflow-Records file.
             # in order to do so we need to setup the proper format for `tf.train.SequenceExample`
@@ -742,8 +786,6 @@ def persist_as_tfrecord(dataset, out_dir, basename, species, splits=None, split_
             # be the first axis
             S = np.transpose(S, (1,0,2))
 
-
-
             # use model (`0` or `1`), the id of the clade and length of the sequences
             # as context features
             msa_context = tf.train.Features(feature = {
@@ -768,7 +810,7 @@ def persist_as_tfrecord(dataset, out_dir, basename, species, splits=None, split_
             # write the serialized example to the TFWriter
             msa_serialized = msa_sequence_example.SerializeToString()
             tfwriter.write(msa_serialized)
-                
+
             #if verbose:
             #    print(f"leaf_configuration[1,...]: {leaf_configuration.shape} {leaf_configuration[1,...]}")
             #    ichar_test = np.random.randint(0, sequence_length)
@@ -778,6 +820,8 @@ def persist_as_tfrecord(dataset, out_dir, basename, species, splits=None, split_
             #    print(f"\tSequence Length: {sequence_length}")
             #    print(f"\tConfiguration: {iconfigurations}")
             #    print(f"\tPosition {ichar_test} character of the sequence: {leaf_configuration[:, ichar_test]}")
+    
+    print ("number of records written [bin s, model m]:\n", n_written)
     return num_skipped
 
 
