@@ -50,6 +50,13 @@ def folder_exists_and_is_writable(arg):
         raise argparse.ArgumentTypeError(f"The folder {arg} does not exist or is not writable!")
     return arg
 
+def folder_is_writable_if_exists(arg):
+    if arg == None:
+        return arg
+    if not os.path.isdir(arg) or not os.access(arg, os.W_OK):
+        raise argparse.ArgumentTypeError(f"The folder {arg} does not exist or is not writable!")
+    return arg
+
 def is_valid_split(arg):
     try:
         splits = json.loads(arg)
@@ -97,7 +104,7 @@ Use one of the following commands:
 
     def convert(self):
         parser = argparse.ArgumentParser(
-                description='Create an MSA dataset ready for usage in aladdin')
+                description='Convert an input multiple sequence alignment dataset to be used by aladdin.')
 
         parser.add_argument('in_type', 
                 choices=['augustus', 'fasta', 'phylocsf'],
@@ -110,11 +117,10 @@ Use one of the following commands:
             type=file_exists, 
             help="Input file(s) in .out(.gz) format from AUGUSTUS, in FASTA (.fs) format or a (.zip) file from PhyloCSF")
 
-        parser.add_argument('--out_dir',
+        parser.add_argument('--tf_out_dir',
                 metavar='OUTPUT_FOLDER',
                 help='Folder in which the converted MSA database should be stored. By default the folder "msa/" is used.',
-                default='msa/',
-                type=folder_exists_and_is_writable)
+                type = folder_is_writable_if_exists)
         
         
         parser.add_argument('--basename',
@@ -124,6 +130,16 @@ Use one of the following commands:
         parser.add_argument('--to_phylocsf',
                 help='Specifies that the MSA database should be converted to a format compatible with training and evaluating in PhyloCSF.',
                 action='store_true')
+
+        parser.add_argument('--write_nexus',
+                metavar = 'NEX_FILENAME',
+                help = 'A sample of positive alignments are concatenated and converted to a NEXUS format that can be used directly by MrBayes to create a tree.')
+
+        parser.add_argument('--nexus_sample_size',
+                metavar = 'N',
+                help = 'The sample size (=number of alignments) of the nexus output. The sample is taken uniformly from among all positive alignments in random order.',
+                type = int,
+                default = 3)
 
         parser.add_argument('--splits', 
                 help='The imported MSA database will be splitted into the specified pieces. SPLITS_JSON is assumed to be a a dictionairy in JSON notation. The keys are used in conjunction with the base name to specify an output path. The values are assumed to be either positive integers or floating point numbers between zero and one. In the former case up to this number of examples will be stored in the respective split. In the latter case the number will be treated as a percentage number and the respective fraction of the data will be stored in the split. A single "-1" is allowed as a value and all remaining entries will be stored in the respective split.',
@@ -190,11 +206,14 @@ Use one of the following commands:
         if args.ratio_neg_to_pos:
             T = mc.subsample_labels(T, args.ratio_neg_to_pos)
 
-        # If some MSAs have been imported sucessfully we can store them in tfrecords
-        if len(T) > 0:
+        # write NEXUS format for tree construction
+        if args.write_nexus:
+            mc.export_nexus(T, args.write_nexus, args.nexus_sample_size)
 
+        # If some MSAs have been imported sucessfully we can store them in tfrecords
+        if args.tf_out_dir and len(T) > 0:
             num_skipped = mc.persist_as_tfrecord(dataset=T,
-                    out_dir = args.out_dir,
+                    tf_out_dir = args.tf_out_dir,
                     basename = args.basename,
                     species = species,
                     splits = args.splits,

@@ -611,6 +611,28 @@ def subsample_labels(msas, ratio):
     random.shuffle(filtered_msas)
     return filtered_msas
 
+def export_nexus(msas, nex_fname, n):
+    """ A sample of positive alignments are concatenated and converted to a NEXUS format that can be used directly by MrBayes to create a tree.
+    Args:
+        msas: an input list of MSAs
+        nex_fname: output file name
+        n: maximal sample size
+    """
+    positiveMSAs = [msa for msa in msas if msa.model == 1]
+    num_pos = len(positiveMSAs)
+    if n > num_pos:
+        print ("Warning: Requested NEXUS sample size larger than the number of positive alignments (",
+              num_pos, "). Taking all of them as sample.")
+        n = num_pos
+        
+    results = random.sample(positiveMSAs, n)
+    
+    # write as .nex file
+    nexF = open(nex_fname, "w")
+    nexF.write("#NEXUS\n")
+    nexF.write("begin data;\n")
+    nexF.write("end;")
+    nexF.close()
     
 # TODO: Delete this function when debug is done. It is now directly implemented in the persistence function
 def write_msa(msa, species, tfwriter, use_codons=True, verbose=False):
