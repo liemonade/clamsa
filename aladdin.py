@@ -193,10 +193,14 @@ Use one of the following commands:
             args.basename = '_'.join(Path(p).stem for p in args.input_files)
 
         if args.in_type == 'augustus':
-            T, species = mc.import_augustus_training_file(args.input_files, reference_clades=args.clades, margin_width=args.margin_width)
+            T, species = mc.import_augustus_training_file(args.input_files,
+                                                          reference_clades = args.clades,
+                                                          margin_width = args.margin_width)
 
         if args.in_type == 'phylocsf':
-            T, species = mc.import_phylocsf_training_file(args.input_files, reference_clades=args.clades, margin_width=args.margin_width)
+            T, species = mc.import_phylocsf_training_file(args.input_files,
+                                                          reference_clades = args.clades,
+                                                          margin_width = args.margin_width)
         
         # harmonize the length distributions if requested
         if args.subsample_lengths:
@@ -208,7 +212,8 @@ Use one of the following commands:
 
         # write NEXUS format for tree construction
         if args.write_nexus:
-            mc.export_nexus(T, args.write_nexus, args.nexus_sample_size)
+            mc.export_nexus(T, species, nex_fname = args.write_nexus,
+                            n = args.nexus_sample_size, use_codons = args.use_codons)
 
         # If some MSAs have been imported sucessfully we can store them in tfrecords
         if args.tf_out_dir and len(T) > 0:
