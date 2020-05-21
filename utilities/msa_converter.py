@@ -151,7 +151,8 @@ def tuple_alignment(sequences, gap_symbols='-', frame = 0, tuple_length = 3):
     S = sequences
 
     # number of entries missing until the completion of the framing tuple
-    frame_comp = (tuple_length - frame) % tuple_length
+    # frame_comp = (tuple_length - frame) % tuple_length
+    frame_comp = frame
 
     # pattern to support frames, i.e. skipping the first `frame_comp` tuple entries at line start
     frame_pattern = '(?:(?:^' + f'[^{gap_symbols}]'.join([f'[{gap_symbols}]*' for i in range(frame_comp+1)]) + f')|[{gap_symbols}]*)\K'
@@ -160,7 +161,7 @@ def tuple_alignment(sequences, gap_symbols='-', frame = 0, tuple_length = 3):
     tuple_pattern = f'[{gap_symbols}]*'.join([f'([^{gap_symbols}])' for i in range(tuple_length)])
     tuple_re = re.compile(frame_pattern + tuple_pattern)
     
-    # for each sequence find the tuples of indicies 
+    # for each sequence find the tuples of indices 
     T = [set(tuple(m.span(i+1)[0] for i in range(tuple_length)) for m in tuple_re.finditer(s)) for s in S]
     
     # flatten T to a list and count how often each multiindex is encountered
@@ -209,7 +210,7 @@ def leaf_order(path, use_alternatives=False):
     # these are precisely those nodes which do not have children
     # i.e. to the left of the node is either a '(' or ',' character
     # or the beginning of the line
-    leave_regex = re.compile('(?:^|[(,])([a-zA-Z]*)[:](?:(?:[0-9]*[.])?[0-9]+)')
+    leave_regex = re.compile('(?:^|[(,])([a-zA-Z0-9]*)[:](?:(?:[0-9]*[.])?[0-9]+)')
     
     with open(path, 'r') as fp:
         
@@ -268,7 +269,7 @@ def import_augustus_training_file(paths, undersample_neg_by_factor = 1., alphabe
     # The species encountered in the file(s).
     # If clades are specified the leave species will be imported.
     species = [leaf_order(c) for c in reference_clades] if reference_clades != None else []
-
+    print ("species=", species, "reference_clades=", reference_clades)
     # total number of bytes to be read
     total_bytes = sum([os.path.getsize(x) for x in paths])
 
@@ -312,7 +313,7 @@ def import_augustus_training_file(paths, undersample_neg_by_factor = 1., alphabe
 
                             if num_parents == 0:
                                 raise Exception(f'The species {list(encountered_species.values())} found in "{path}'
-                                                f'" are not fully included in any of the given clades.')
+                                                f'" are not fully included in any of the given clades:' + str(C))
                             if num_parents > 1:
                                 parent_clades = [reference_clades[i] for i in range(len(C)) if e <= C[i]]
                                 raise Exception(f'The species {list(encountered_species.values())} found in "{path}" are included in multiple clades, namely in {parent_clades}.')
