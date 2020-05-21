@@ -36,6 +36,7 @@ class MSA(object):
         self.sequences = sequences
         self._updated_sequences = True
         self._coded_sequences = None
+        self.in_frame_stop = False
 
 
     @property
@@ -76,11 +77,12 @@ class MSA(object):
             tbl = str.maketrans(alphabet, rev_alphabet)
             sequences = [s[::-1].translate(tbl) for s in sequences]
 
-        return tuple_alignment(sequences, gap_symbols, frame = self.frame, tuple_length = c)
+        cali, self.in_frame_stop = tuple_alignment(sequences, gap_symbols, frame = self.frame, tuple_length = c)
+        return cali
 
     @property
     def coded_codon_aligned_sequences(self, alphabet='acgt', gap_symbols = '-'):
-        ca = self.codon_aligned_sequences
+        ca, self.in_frame_stop = self.codon_aligned_sequences
         return ote.OnehotTupleEncoder.encode(ca,tuple_length=3, use_bucket_alphabet=False)
 
     @property
@@ -151,8 +153,9 @@ def tuple_alignment(sequences, gap_symbols='-', frame = 0, tuple_length = 3):
     S = sequences
 
     # number of entries missing until the completion of the framing tuple
-    frame_comp = (tuple_length - frame) % tuple_length
-
+    # frame_comp = (tuple_length - frame) % tuple_length
+    frame_comp = frame
+    
     # pattern to support frames, i.e. skipping the first `frame_comp` tuple entries at line start
     frame_pattern = '(?:(?:^' + f'[^{gap_symbols}]'.join([f'[{gap_symbols}]*' for i in range(frame_comp+1)]) + f')|[{gap_symbols}]*)\K'
     
@@ -188,9 +191,14 @@ def tuple_alignment(sequences, gap_symbols='-', frame = 0, tuple_length = 3):
     if stops_in_lastcol:
         ta_matrix = ta_matrix[:, 0:-1]
         
+    # check if there is an in-frame stop codon somewhere
+    stops_anywhere = False
+    for i in range(ta_matrix.shape[1]):
+        stops_anywhere = stops_anywhere or bool(set(ta_matrix[:,i]) & stop_codons)
+
     # join the rows to get a list of tuple alignment sequences
     ta = [''.join(row) for row in ta_matrix]
-    return ta
+    return ta, stops_anywhere
 
 
 
@@ -209,7 +217,7 @@ def leaf_order(path, use_alternatives=False):
     # these are precisely those nodes which do not have children
     # i.e. to the left of the node is either a '(' or ',' character
     # or the beginning of the line
-    leave_regex = re.compile('(?:^|[(,])([a-zA-Z]*)[:](?:(?:[0-9]*[.])?[0-9]+)')
+    leave_regex = re.compile('(?:^|[(,])([a-zA-Z0-9]*)[:](?:(?:[0-9]*[.])?[0-9]+)')
     
     with open(path, 'r') as fp:
         
@@ -618,15 +626,23 @@ def export_nexus(msas, species, nex_fname, n, use_codons):
         n: maximal sample size
     """
     positiveMSAs = []
+    num_in_frame_stops = num_positives = 0
     for msa in msas:
         if (msa.model == 1):
-            positiveMSAs.append(msa)
+            num_positives += 1
+            msa.codon_aligned_sequences
+            if msa.in_frame_stop:
+                num_in_frame_stops += 1
+            else:
+                positiveMSAs.append(msa)
     num_pos = len(positiveMSAs)
     if n > num_pos:
         print ("Warning: Requested NEXUS sample size larger than the number of positive alignments (",
               num_pos, "). Taking all of them as sample.")
         n = num_pos
-        
+    if num_in_frame_stops > 0:
+        print("Found", num_in_frame_stops, "in-frame stop codons in ", num_positives, "positive alignments. Omitting them.")
+
     sampledMSAs = random.sample(positiveMSAs, n)
     num_col = 0
     snameset = set()
@@ -652,7 +668,7 @@ def export_nexus(msas, species, nex_fname, n, use_codons):
     for msa in sampledMSAs:
         msanames = [l for (c, l) in msa.spec_ids]
         
-        ca = msa.codon_aligned_sequences
+        ca, _ = msa.codon_aligned_sequences
         codonalilen = len(ca[0])
         for sidx in sidxs: 
             nexF.write('{1:{0}}'.format(max_len_speciesname + 2, clade_specieslist[sidx]))
