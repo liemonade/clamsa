@@ -153,8 +153,7 @@ def tuple_alignment(sequences, gap_symbols='-', frame = 0, tuple_length = 3):
     S = sequences
 
     # number of entries missing until the completion of the framing tuple
-    # frame_comp = (tuple_length - frame) % tuple_length
-    frame_comp = frame
+    frame_comp = frame # this is the GGF frame definition, was before: frame_comp = (tuple_length - frame) % tuple_length
 
     # pattern to support frames, i.e. skipping the first `frame_comp` tuple entries at line start
     frame_pattern = '(?:(?:^' + f'[^{gap_symbols}]'.join([f'[{gap_symbols}]*' for i in range(frame_comp+1)]) + f')|[{gap_symbols}]*)\K'
@@ -668,7 +667,7 @@ def export_nexus(msas, species, nex_fname, n, use_codons):
     for msa in sampledMSAs:
         msanames = [l for (c, l) in msa.spec_ids]
         
-        ca, _ = msa.codon_aligned_sequences
+        ca = msa.codon_aligned_sequences
         codonalilen = len(ca[0])
         for sidx in sidxs: 
             nexF.write('{1:{0}}'.format(max_len_speciesname + 2, clade_specieslist[sidx]))
