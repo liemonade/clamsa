@@ -215,10 +215,10 @@ Use one of the following commands:
             mc.export_nexus(T, species, nex_fname = args.write_nexus,
                             n = args.nexus_sample_size, use_codons = args.use_codons)
 
-        # If some MSAs have been imported sucessfully we can store them in tfrecords
+        # store MSAs in tfrecords, if requested and existing
         if args.tf_out_dir and len(T) > 0:
             num_skipped = mc.persist_as_tfrecord(dataset=T,
-                    tf_out_dir = args.tf_out_dir,
+                    out_dir = args.tf_out_dir,
                     basename = args.basename,
                     species = species,
                     splits = args.splits,
@@ -227,7 +227,7 @@ Use one of the following commands:
                     use_compression = args.use_compression,
                     verbose = args.verbose)
 
-            print(f'The dataset have sucessfully been saved. {num_skipped} entries have been skipped due to beeing too short.')
+            print(f'The datasets have sucessfully been saved in tfrecord files. {num_skipped} entries have been skipped due to beeing too short.')
 
 def main():
 
