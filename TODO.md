@@ -7,6 +7,7 @@
  - [ ] 6) Conditaional on relative success: Compile set of labeled plant alignments, tree and training and test sets.
   
 # Programming tasks
+  - [ ] a) Implement ```--to_phylocsf``` option.
 
 # Notes
  
