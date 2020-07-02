@@ -82,7 +82,7 @@ class MSA(object):
 
     @property
     def coded_codon_aligned_sequences(self, alphabet='acgt', gap_symbols = '-'):
-        ca, self.in_frame_stop = self.codon_aligned_sequences
+        ca = self.codon_aligned_sequences
         return ote.OnehotTupleEncoder.encode(ca,tuple_length=3, use_bucket_alphabet=False)
 
     @property
