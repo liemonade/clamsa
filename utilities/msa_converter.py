@@ -756,8 +756,15 @@ def write_msa(msa, species, tfwriter, use_codons=True, verbose=False):
     msa_serialized = msa_sequence_example.SerializeToString()
     tfwriter.write(msa_serialized)
 
-
-def persist_as_tfrecord(dataset, out_dir, basename, species, splits=None, split_models=None, use_codons=False, use_compression=True, verbose=False):
+    
+    
+def preprocess_export(dataset, species, splits = None, split_models = None,
+                      use_codons = False, verbose = False):
+    pass
+    
+def persist_as_tfrecord(dataset, out_dir, basename, species,
+                        splits=None, split_models=None, use_codons=False,
+                        use_compression=True, verbose=False):
     # Importing Tensorflow takes a while. Therefore to not slow down the rest 
     # of the script it is only imported once used.
     print ("Writing to tfrecords.")
@@ -904,3 +911,5 @@ def persist_as_tfrecord(dataset, out_dir, basename, species, splits=None, split_
     return num_skipped
 
 
+def write_phylocsf():
+    pass

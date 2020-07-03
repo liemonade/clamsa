@@ -127,9 +127,9 @@ Use one of the following commands:
                 metavar = 'BASENAME',
                 help = 'The base name of the output files to be generated. By default a concatination of the input files is used.')
 
-        parser.add_argument('--to_phylocsf',
-                help='Specifies that the MSA database should be converted to a format compatible with training and evaluating in PhyloCSF.',
-                action='store_true')
+        parser.add_argument('--phylocsf_out_dir',
+                help = 'Specifies that the MSA database should (also) be converted to PhyloCSF format.',
+                type = folder_is_writable_if_exists)
 
         parser.add_argument('--write_nexus',
                 metavar = 'NEX_FILENAME',
@@ -215,184 +215,35 @@ Use one of the following commands:
             mc.export_nexus(T, species, nex_fname = args.write_nexus,
                             n = args.nexus_sample_size, use_codons = args.use_codons)
 
-        # store MSAs in tfrecords, if requested and existing
-        if args.tf_out_dir and len(T) > 0:
-            num_skipped = mc.persist_as_tfrecord(dataset=T,
-                    out_dir = args.tf_out_dir,
-                    basename = args.basename,
-                    species = species,
-                    splits = args.splits,
-                    split_models = args.split_models,
-                    use_codons = args.use_codons,
-                    use_compression = args.use_compression,
-                    verbose = args.verbose)
+        if len(T) > 0:
+            xxx = mc.preprocess_export(T, species, args.splits, args.split_models,
+                                    args.use_codons, args.verbose)
+            num_skipped = 0
+            print(f'{num_skipped} entries have been skipped due to beeing too short.')
+            
+            # store MSAs in tfrecords, if requested
+            if args.tf_out_dir:
+                num_skipped = mc.persist_as_tfrecord(dataset=T,
+                        out_dir = args.tf_out_dir,
+                        basename = args.basename,
+                        species = species,
+                        splits = args.splits,
+                        split_models = args.split_models,
+                        use_codons = args.use_codons,
+                        use_compression = args.use_compression,
+                        verbose = args.verbose)
 
-            print(f'The datasets have sucessfully been saved in tfrecord files. {num_skipped} entries have been skipped due to beeing too short.')
+                print(f'The datasets have sucessfully been saved in tfrecord files.')
+            
+            # store MSAs in PhyloCSF format, if requested
+            if args.phylocsf_out_dir:
+                mc.write_phylocsf()
+                print(f'The datasets have sucessfully been saved in PhyloCSF files.')
 
+        
 def main():
-
     Aladdin()
     exit(0)
-
-
-    # TODO: Old concept code, remove!
-    # Shorten notation
-    pn = PARAMETER_NAMES
-
-    # If a config file should be loaded 
-    # do it now and use the loaded data
-    # as default data for the respective 
-    # parameters
-    config_loader = argparse.ArgumentParser(add_help=False)
-    config_loader.add_argument("--load-config",
-            dest="load_config",
-            metavar="CONFIG_PATH",
-            nargs="?",
-            type=str,
-            const=DEFAULT_CONFIG_NAME)
-    config_info,_ = config_loader.parse_known_args()
-    config_info = vars(config_info)
-    # Flag if a config file should be loaded
-    config_present = config_info[pn[CFG_IN_SECTION]] is not None
-    loaded_parameters = {}
-
-    if config_present:
-        config = configparser.ConfigParser()
-        if os.path.isfile(DEFAULT_CONFIG_PATH):
-            with open(DEFAULT_CONFIG_PATH, 'r') as configfile:
-                config.read_file(configfile)
-                i = config_info[pn[CFG_IN_SECTION]]
-
-                # Clades
-                if config.has_option(i, CFG_CLADES):
-                    loaded_parameters[CFG_CLADES] = json.loads(config[i][CFG_CLADES])
-                # MSAs
-                if config.has_option(i, CFG_MSA):
-                    loaded_parameters[CFG_MSA] = json.loads(config[i][CFG_MSA])
-                # Should Train
-                if config.has_option(i, CFG_SHOULD_TRAIN):
-                    loaded_parameters[CFG_SHOULD_TRAIN] = bool(config[i][CFG_SHOULD_TRAIN])
-                # Model specification path
-                if config.has_option(i, CFG_MODEL_SPEC):
-                    loaded_parameters[CFG_MODEL_SPEC] = config[i][CFG_MODEL_SPEC]
-                # Model weights path
-                if config.has_option(i, CFG_MODEL_WEIGHTS):
-                    loaded_parameters[CFG_MODEL_WEIGHTS] = config[i][CFG_MODEL_WEIGHTS]
-
-    EXAMPLE_USAGES = "Example usage:...."
-
-    ## Setup command line options and help
-    parser = argparse.ArgumentParser(
-            description='Evaluates MSA\'s given a tree.',
-            epilog=EXAMPLE_USAGES
-    )
-
-
-
-    parser.add_argument("--load-config",
-            dest="load_config",
-            metavar="CONFIG_PATH",
-            nargs="?",
-            type=str,
-            const=DEFAULT_CONFIG_NAME,
-            help=f"Command line parameters previously saved into the configuration file '{DEFAULT_CONFIG_PATH}' with name {DEFAULT_CONFIG_NAME} will be loaded. If CONFIG_PATH is provided the configuration entry CONFIG_PATH will be loaded instead.")
-
-
-
-    # Tree Specification
-    # TODO: Check that the given paths are valid
-    parser.add_argument("-c", "--clade",
-            metavar=("CLADE_FILE_1", "CLADE_FILE_2"),
-            dest="clade",
-            nargs='*' if config_present else '+',
-            default=loaded_parameters[CFG_CLADES] if config_present else None,
-            type=file_exists,
-            help="Clade file(s) in Newick (.nwk) format",
-            required=not config_present)
-
-    # MSA Files
-    # TODO: Check that the given paths are valid
-    parser.add_argument("-i", "--input", 
-            metavar=("INPUT_FILE_1", "INPUT_FILE_2"),
-            type=file_exists, 
-            default=loaded_parameters[CFG_MSA] if config_present else None,
-            nargs="*" if config_present else '+', 
-            help="Input file(s) in FASTA (.fs) format or in Tensorflow Record (.tfrecord.gz) format", 
-            required=not config_present, 
-            dest="input_files")
-
-    # Tensorflow model that is compatible 
-    # with aladdin input and output spec.
-    # TODO: Check thet the given paths are valid
-    parser.add_argument("--model_spec", 
-            metavar="SPEC_FILE", 
-            nargs=1,
-            help="Tensorflow SavedModel-file compatible with aladdin input and output specification",
-            type=str)
-
-    # TCMC parameters a.k.a rate matrices and pi
-    # TODO: Check that the given paths are valid
-    parser.add_argument("--model_weights", 
-            metavar="WEIGHTS_FILE", 
-            type=str, 
-            nargs=1, 
-            help="Tensorflow weights-file compatible with the given model specification 'model_spec'")
-    
-    # 
-    parser.add_argument("-t", "--train",
-            dest="train", 
-            action="store_true",
-            help="Start a training run instead of an evaluation")
-
-    # TODO: Check that the given path is valid
-    parser.add_argument("--save-config",
-            dest="save_config",
-            metavar="CONFIG_NAME",
-            nargs="?",
-            const=DEFAULT_CONFIG_NAME,
-            help=f"Saves the current command line parameters into the configuration file '{DEFAULT_CONFIG_PATH}' as the new set of default parameters. If CONFIG_NAME is provided the configuration file will be written to CONFIG_NAME instead.")
-
-
-    # Start evaluating the given parameters
-    args = vars(parser.parse_args())
-
-    # TODO: Remove dummy print
-    print(f"Sucessfully loaded parameters: {args}")
-
-    # TODO: Evaluate arguments
-
-    if args[pn[CFG_OUT_SECTION]]:
-
-        # Read the current configs, if present
-        config = configparser.ConfigParser()
-        if os.path.isfile(DEFAULT_CONFIG_PATH):
-            with open(DEFAULT_CONFIG_PATH, "r") as configfile:
-                config.read_file(configfile)
-
-
-        # Modify the wanted config entry
-        with open(DEFAULT_CONFIG_PATH, "w") as configfile:
-            i = args[pn[CFG_OUT_SECTION]]
-            config[i] = {}
-
-            # Mandatory parameters
-            config[i][CFG_CLADES] = json.dumps(args[pn[CFG_CLADES]])
-            config[i][CFG_MSA] = json.dumps(args[pn[CFG_MSA]])
-
-            # Optional on-demand parameters
-            model_spec = args[pn[CFG_MODEL_SPEC]]
-            if model_spec:
-                config[i][CFG_MODEL_SPEC] = model_spec
-
-            model_weights = args[pn[CFG_MODEL_WEIGHTS]]
-            if model_weights:
-                config[i][CFG_MODEL_WEIGHTS] = model_weights
-            
-            should_train = args[pn[CFG_SHOULD_TRAIN]]
-            if should_train:
-                config[i][CFG_SHOULD_TRAIN] = str(True)
-
-            config.write(configfile)
 
 if __name__ == "__main__":
     main()
