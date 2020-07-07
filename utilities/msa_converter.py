@@ -608,11 +608,10 @@ def subsample_labels(msas, ratio):
     else: # too many positives
         reduced_size = int(num_neg / ratio + 0.5)
         print ("Warning: --ratio_neg_to_pos removed positive examples. Maybe you want to omit the parameter to save positves.")
-        print ("Reducing number of positives from ", num_pos, " to ", reduced_size, ".", sep="")
+        print ("Reducing number of positives from", num_pos, "to", reduced_size)
         filtered_msas.extend(random.sample(pos_msas, reduced_size))
         filtered_msas.extend(neg_msas)
 
-    print ("Subsample_labels result list length =", len(filtered_msas))
     random.shuffle(filtered_msas)
     return filtered_msas
 
@@ -760,21 +759,7 @@ def write_msa(msa, species, tfwriter, use_codons=True, verbose=False):
     
 def preprocess_export(dataset, species, splits = None, split_models = None,
                       use_codons = False, verbose = False):
-    pass
     
-def persist_as_tfrecord(dataset, out_dir, basename, species,
-                        splits=None, split_models=None, use_codons=False,
-                        use_compression=True, verbose=False):
-    # Importing Tensorflow takes a while. Therefore to not slow down the rest 
-    # of the script it is only imported once used.
-    print ("Writing to tfrecords.")
-    import tensorflow as tf
-
-    options = tf.io.TFRecordOptions(compression_type = 'GZIP') if use_compression else None
-
-    # count the sequences that have been skipped
-    num_skipped = 0
-
     # Prepare for iteration
     splits = splits if splits != None else {None: 1.0}
     split_models = split_models if split_models != None else [None]
@@ -788,16 +773,43 @@ def persist_as_tfrecord(dataset, out_dir, basename, species,
     # Convert relative numbers to absolute numbers
     random.shuffle(dataset)
     n_data = len(dataset)
-    to_total = lambda x: int(abs(x) * n_data) if isinstance(x, float) else abs(x)
-    split_totals = np.array([to_total(x) for x in list(splits.values())])
-
+    requested_sizes = np.array(list(splits.values()))
+    negs = np.nonzero(requested_sizes < 0) # maximally fill the negative sizes, e.g. -1
+    
+    to_total = lambda x: int(max(x, 0) * n_data) if isinstance(x, float) else max(x, 0)
+    
+    split_totals = np.array([to_total(x) for x in requested_sizes])
     n_wanted = sum(split_totals)
+    if len(negs) > 0 and n_wanted < n_data:
+        # divide the remaining examples between the ones with requested negative size
+        each_gets = int((n_data - n_wanted) / len(negs[0]))
+        if verbose:
+            print("Subsets (splits) with requested negative size each get ", each_gets, "alignents.")
+        split_totals[negs] = each_gets
+        n_wanted = sum(split_totals) # = n_data
+    print("Split totals:", split_totals)
+    
     # rescale accordindly
     if n_wanted > n_data:
         split_totals = split_totals * (n_data / n_wanted)
 
     # The upper bound indices used to decide where to write the `i`-th entry
     split_bins = np.cumsum(split_totals)
+    # print ("split_bins=", split_bins , "\nsplits=", splits, "\nsplit_models=", split_models)
+    return splits, split_models, split_bins, n_wanted
+
+
+def persist_as_tfrecord(dataset, out_dir, basename, species,
+                        splits=None, split_models=None, split_bins=None, 
+                        n_wanted=None, use_codons=False,
+                        use_compression=True, verbose=False):
+    # Importing Tensorflow takes a while. Therefore to not slow down the rest 
+    # of the script it is only imported once used.
+    print ("Writing to tfrecords...")
+    import tensorflow as tf
+
+    options = tf.io.TFRecordOptions(compression_type = 'GZIP') if use_compression else None
+
 
     # Generate target file name based on chosen split and model
     
@@ -818,20 +830,11 @@ def persist_as_tfrecord(dataset, out_dir, basename, species,
 
         n_written = np.zeros([len(splits), len(split_models)])
         
-        for i in tqdm(range(n_wanted), desc="Writing dataset", unit=" MSA"):
+        for i in tqdm(range(n_wanted), desc="Writing TensorFlow record", unit=" MSA"):
 
             msa = dataset[i]
-
-            # TODO: Ignore sequences with only one species
-            #if T[i]["S"].shape[0] < 2 or pmap[i] < 0:
-            #    continue
-            # context features to be saved
             iconfigurations = msa.spec_ids
-
             leaf_configuration = msa.coded_sequences
-                    
-            # TODO: Max and min length
-            
             model = msa.model
 
             # retrieve the wanted tfwriter for this MSA
@@ -848,11 +851,6 @@ def persist_as_tfrecord(dataset, out_dir, basename, species,
 
             # Infer the length of the sequences
             sequence_length = coded_sequences.shape[1]
-
-            if sequence_length == 0:
-                num_skipped = num_skipped + 1
-                continue
-
 
             # cardinality of the alphabet that has been onehot-encoded
             s = coded_sequences.shape[-1]
@@ -907,9 +905,98 @@ def persist_as_tfrecord(dataset, out_dir, basename, species,
             #    print(f"\tConfiguration: {iconfigurations}")
             #    print(f"\tPosition {ichar_test} character of the sequence: {leaf_configuration[:, ichar_test]}")
     
-    print ("number of records written [bin s, model m]:\n", n_written)
-    return num_skipped
+    print ("number of tf records written [rows: split bin s, column: model/label m]:\n", n_written)
 
 
-def write_phylocsf():
-    pass
+def get_end_offset(start_offset, seqlen):
+    """ 
+       get the largest position where a complete codon could start,
+       end_offset - start_offset is a multiple of 3 so incomplete codons are truncated
+    """
+    end_offset = seqlen - 3 # -3 so, a full codon could end right at end_offset
+    end_offset = start_offset + math.floor((end_offset - start_offset) / 3) * 3
+    return end_offset
+
+    
+def write_phylocsf(dataset, out_dir, basename, species,
+                   splits = None, split_models = None, split_bins = None, 
+                   n_wanted = None, use_codons = False):
+    """
+       Each MSA is written into a single text file in a format required by PhyloCSF.
+    """
+    print ("Writing to PhyloCSF flat files...")
+    classnames = ["controls", "exons"]
+    subdir_size = 500
+    phyloDEBUG = False
+    
+    splitnames = list(splits.keys()) # e.g. train, val1, val2, test
+           
+    refid = None # 3 (dm) is reference,
+    class_counts = [0, 0] # how many examples of class y=0 and y=1 have been seen yet
+    n_written = np.zeros([len(splits), len(split_models)])
+    
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+            
+    for i in tqdm(range(n_wanted), desc = "Writing PhyloCSF dataset", unit = " MSA"):
+        s = np.digitize(i, split_bins)
+        split_dir = os.path.join(out_dir, basename, splitnames[s])
+        if not os.path.exists(split_dir):
+            os.makedirs(split_dir)
+        
+        msa = dataset[i]
+         # get the id of the used clade and leaves inside this clade
+        clade_id = msa.spec_ids[0][0]
+        phyloCSFspecies = species[clade_id] # correct?  
+    
+        frame = msa.frame
+        y = msa.model
+        assert y == 0 or y == 1, "PhyloCSF output expects binary class"
+        
+        class_dir = os.path.join(split_dir, classnames[y])
+        if not os.path.exists(class_dir):
+            os.makedirs(class_dir)  
+
+        subdir = os.path.join(class_dir, "{:03d}".format(int(class_counts[y] / subdir_size)))
+        if not os.path.exists(subdir):
+            os.makedirs(subdir)
+
+        fname = os.path.join(subdir, "{:03d}.fa".format(class_counts[y]))
+        fa = open(fname, "w+")
+        
+        class_counts[y] += 1
+        # indices to species ids sorted so reference is first
+        # not required by PhyloCSF
+        
+        if refid:
+            sids = sorted(range(len(msa.spec_ids)), key = lambda k: ((msa.spec_ids[k])[1] != refid))
+        else:
+            sids = range(len(msa.spec_ids))
+
+        for j, k in enumerate(sids):
+            (_, k) = msa.spec_ids[k]
+            fa.write(">" + phyloCSFspecies[k])
+            if j == 0:
+                fa.write("|y=" + str(y) + "|f=" + str(frame))
+                fa.write(" " + msa.chromosome_id + ":" + str(msa.start_index) + "-" + str(msa.end_index))
+                if phyloDEBUG:     
+                    fa.write((" +" if msa.is_on_plus_strand else " -") + " phase="  + str(frame))
+            fa.write("\n")
+            seq = msa.sequences[sids[j]]
+            start_offset = frame
+            end_offset = get_end_offset(start_offset, len(seq))
+            
+            if phyloDEBUG:
+                fa.write(seq[0 : margin_width] + " " +
+                      seq[margin_width: start_offset] + " ")
+            
+            fa.write(seq[start_offset : end_offset + 3])
+            if phyloDEBUG:
+                  fa.write(" " + seq[end_offset + 3 : len(seq)]
+                      + " " + seq[len(seq):])
+            fa.write("\n")
+        n_written[s][y] += 1
+        fa.close()
+    print ("number of PhyloCSF records written [rows: split bin s, column: model/label m]:\n", n_written)
+    
+    

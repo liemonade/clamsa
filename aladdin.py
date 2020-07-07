@@ -62,19 +62,9 @@ def is_valid_split(arg):
         splits = json.loads(arg)
         if not isinstance(splits, dict):
             argparse.ArgumentTypeError(f'The provided split {arg} does not represent a dictionairy!')
-
-        num_minus_one = 0
         for split in splits:
-
             if not isinstance(splits[split], numbers.Number):
                 raise argparse.ArgumentTypeError(f'The provided value "{splits[split]}" for the split "{split}" is not a number!')
-
-            if splits[split] == -1:
-                num_minus_one = num_minus_one + 1
-
-        if num_minus_one > 1:
-            raise argparse.ArgumentTypeError(f'More than one -1 is provided as a value of the splits!')
-
         return splits
     except ValueError:
         raise argparse.ArgumentTypeError(f'The provided split "{arg}" is not a valid JSON string!')
@@ -142,7 +132,7 @@ Use one of the following commands:
                 default = 3)
 
         parser.add_argument('--splits', 
-                help='The imported MSA database will be splitted into the specified pieces. SPLITS_JSON is assumed to be a a dictionairy in JSON notation. The keys are used in conjunction with the base name to specify an output path. The values are assumed to be either positive integers or floating point numbers between zero and one. In the former case up to this number of examples will be stored in the respective split. In the latter case the number will be treated as a percentage number and the respective fraction of the data will be stored in the split. A single "-1" is allowed as a value and all remaining entries will be stored in the respective split.',
+                help='The imported MSA database will be splitted into the specified pieces. SPLITS_JSON is assumed to be a a dictionairy in JSON notation. The keys are used in conjunction with the base name to specify an output path. The values are assumed to be either positive integers or floating point numbers between zero and one. In the former case up to this number of examples will be stored in the respective split. In the latter case the number will be treated as a percentage number and the respective fraction of the data will be stored in the split. A value of -1 specifies that the remaining entries are distributed among the splits of negative size. All (filtered) examples are used in this case.',
                 metavar='SPLITS_JSON',
                 type=is_valid_split)
 
@@ -210,25 +200,29 @@ Use one of the following commands:
         if args.ratio_neg_to_pos:
             T = mc.subsample_labels(T, args.ratio_neg_to_pos)
 
-        # write NEXUS format for tree construction
-        if args.write_nexus:
-            mc.export_nexus(T, species, nex_fname = args.write_nexus,
-                            n = args.nexus_sample_size, use_codons = args.use_codons)
-
+        print ("Number of filtered alignments available to be written: ", len(T))
+        
         if len(T) > 0:
-            xxx = mc.preprocess_export(T, species, args.splits, args.split_models,
-                                    args.use_codons, args.verbose)
-            num_skipped = 0
-            print(f'{num_skipped} entries have been skipped due to beeing too short.')
+            # write NEXUS format for tree construction
+            if args.write_nexus:
+                mc.export_nexus(T, species, nex_fname = args.write_nexus,
+                                n = args.nexus_sample_size, use_codons = args.use_codons)
+            
+            # compute actual split sizes: how many alignments to write in test, validation, training sets
+            splits, split_models, split_bins, n_wanted \
+            = mc.preprocess_export(T, species,
+                                   args.splits,
+                                   args.split_models,
+                                   args.use_codons, 
+                                   args.verbose)
             
             # store MSAs in tfrecords, if requested
             if args.tf_out_dir:
-                num_skipped = mc.persist_as_tfrecord(dataset=T,
-                        out_dir = args.tf_out_dir,
-                        basename = args.basename,
-                        species = species,
-                        splits = args.splits,
-                        split_models = args.split_models,
+                num_skipped = mc.persist_as_tfrecord(T,
+                        args.tf_out_dir,
+                        args.basename,
+                        species,
+                        splits, split_models, split_bins, n_wanted,
                         use_codons = args.use_codons,
                         use_compression = args.use_compression,
                         verbose = args.verbose)
@@ -237,7 +231,13 @@ Use one of the following commands:
             
             # store MSAs in PhyloCSF format, if requested
             if args.phylocsf_out_dir:
-                mc.write_phylocsf()
+                mc.write_phylocsf(T,
+                        args.phylocsf_out_dir,
+                        args.basename,
+                        species,
+                        splits, split_models, split_bins, n_wanted,
+                        use_codons = args.use_codons)
+                
                 print(f'The datasets have sucessfully been saved in PhyloCSF files.')
 
         
