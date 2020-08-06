@@ -207,7 +207,7 @@ def leaf_order(path, use_alternatives=False):
         
         Args:
             path (str): Path to the Newick file
-            
+            use_alternatives (bool): TODO
         Returns:
             List[str]: Leaf names encountered in the file
     """
@@ -1077,5 +1077,4 @@ def write_phylocsf(dataset, out_dir, basename, species,
         n_written[s][y] += 1
         fa.close()
     print ("number of PhyloCSF records written [rows: split bin s, column: model/label m]:\n", n_written)
-    
-    
+       
