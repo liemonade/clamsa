@@ -20,7 +20,7 @@ Where we assume that the file `train.out` is stored in the folder `msa` and the 
 Synchronous export to tensorflow records and PhyloCSF files:
 
 ```
-aladdin.py convert augustus sample2.out \
+./aladdin.py convert augustus sample2.out \
    --subsample_lengths  \
    --ratio_neg_to_pos 2 \
    --tf_out_dir tf \
