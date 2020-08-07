@@ -264,34 +264,32 @@ def import_fasta_training_file(paths, undersample_neg_by_factor = 1., reference_
     
     # If clades are specified the leave species will be imported.
     species = [leaf_order(c) for c in reference_clades] if reference_clades != None else []
-    
+
     # total number of bytes to be read
     total_bytes = sum([os.path.getsize(x) for x in paths])
 
     # Status bar for the reading process
     pbar = tqdm(total = total_bytes, desc = "Parsing FASTA file(s)", unit = 'b', unit_scale = True)
     
-    # TODO: fasta files in .gz format
-    fasta_files = [open(path, 'r') for path in paths]
+    fasta_files = [gzip.open(path, 'rt') if path.endswith('.gz') else open(path, 'r') for path in paths]
     
-    for i, fasta in enumerate(fasta_files):
-        
-        bytes_read = fasta.tell()
-                        
+    for fasta in fasta_files:
+              
         # decide whether the upcoming entry should be skipped
-        skip_entry = model==0 and random.random() > 1. / undersample_neg_by_factor
+        skip_entry = model == 0 and random.random() > 1. / undersample_neg_by_factor
 
         if skip_entry:
             continue
-
+            
+        bytes_read = fasta.tell()
         entries = [rec for rec in SeqIO.parse(fasta, "fasta")]
-                    
+
         # parse the species names
         spec_in_file = [e.id.split('|')[0] for e in entries]
-                    
+
         # compare them with the given references
-        ref_ids = [[(r,i) for r in range(len(species))  for i in range(len(species[r])) if s in species[r][i] ] for s in spec_in_file]
-        
+        ref_ids = [[(r,i) for r in range(len(species)) for i in range(len(species[r])) if s in species[r][i] ] for s in spec_in_file]
+
         # check if these are contained in exactly one reference clade
         n_refs = [len(x) for x in ref_ids]
 
@@ -312,8 +310,8 @@ def import_fasta_training_file(paths, undersample_neg_by_factor = 1., reference_
                 chromosome_id = None, 
                 start_index = None,
                 end_index = None,
-                is_on_plus_strand = True, # TODO: right strand
-                frame = 0, # TODO: right frame
+                is_on_plus_strand = True, # TODO: determine right strand
+                frame = 0, # TODO: determine right frame
                 spec_ids = ref_ids,
                 offsets = [],
                 sequences = sequences
