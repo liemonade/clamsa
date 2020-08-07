@@ -260,6 +260,8 @@ def import_fasta_training_file(paths, undersample_neg_by_factor = 1., reference_
     
     training_data = []
     
+    model = 0 # TODO: right model
+    
     # If clades are specified the leave species will be imported.
     species = [leaf_order(c) for c in reference_clades] if reference_clades != None else []
     
@@ -306,7 +308,7 @@ def import_fasta_training_file(paths, undersample_neg_by_factor = 1., reference_
         sequences = sequences[margin_width:-margin_width] if margin_width > 0 else sequences
 
         msa = MSA(
-                model = 0, # TODO: right model
+                model = model,
                 chromosome_id = None, 
                 start_index = None,
                 end_index = None,
