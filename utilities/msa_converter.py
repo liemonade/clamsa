@@ -208,6 +208,7 @@ def leaf_order(path, use_alternatives=False):
         Args:
             path (str): Path to the Newick file
             use_alternatives (bool): TODO
+            
         Returns:
             List[str]: Leaf names encountered in the file
     """
@@ -274,9 +275,7 @@ def import_fasta_training_file(paths, undersample_neg_by_factor = 1., reference_
     for i, fasta in enumerate(fasta_files):
         
         bytes_read = fasta.tell()
-        
-        model = 0 if 'control' in fasta.name else 1
-                
+                        
         # decide whether the upcoming entry should be skipped
         skip_entry = model==0 and random.random() > 1. / undersample_neg_by_factor
 
@@ -307,7 +306,7 @@ def import_fasta_training_file(paths, undersample_neg_by_factor = 1., reference_
         sequences = sequences[margin_width:-margin_width] if margin_width > 0 else sequences
 
         msa = MSA(
-                model = model,
+                model = 0, # TODO: right model
                 chromosome_id = None, 
                 start_index = None,
                 end_index = None,
@@ -1077,4 +1076,4 @@ def write_phylocsf(dataset, out_dir, basename, species,
         n_written[s][y] += 1
         fa.close()
     print ("number of PhyloCSF records written [rows: split bin s, column: model/label m]:\n", n_written)
-       
+
