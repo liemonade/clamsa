@@ -181,6 +181,11 @@ Use one of the following commands:
 
         if args.basename == None:
             args.basename = '_'.join(Path(p).stem for p in args.input_files)
+            
+        if args.in_type == 'fasta':
+            T, species = mc.import_fasta_training_file(args.input_files,
+                                                       reference_clades = args.clades,
+                                                       margin_width = args.margin_width)
 
         if args.in_type == 'augustus':
             T, species = mc.import_augustus_training_file(args.input_files,

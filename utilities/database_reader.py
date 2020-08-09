@@ -17,7 +17,7 @@ def num_leaves(forest):
         Returns:
             (list(int)): Number of leaves encountered in any tree.
     '''
-    num_leaves = [len(msa_converter.leave_order(t)) for t in forest]
+    num_leaves = [len(msa_converter.leaf_order(t)) for t in forest]
 
     return num_leaves
 
