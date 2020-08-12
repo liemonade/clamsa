@@ -173,7 +173,7 @@ def tuple_alignment(sequences, gap_symbols='-', frame = 0, tuple_length = 3):
 
     # trivial case: there is nothing to align
     if len(I) == 0:
-        return ['' for s in S]
+        return ['' for s in S], False
 
     # calculate a matrix with `len(S)` rows and `len(I)` columns.
     #   if the j-th multindex is present in sequence `i` the entry `(i,j)` of the matrix will be 
@@ -851,6 +851,9 @@ def persist_as_tfrecord(dataset, out_dir, basename, species,
 
             # Infer the length of the sequences
             sequence_length = coded_sequences.shape[1]
+            
+            if sequence_length == 0:
+                continue
 
             # cardinality of the alphabet that has been onehot-encoded
             s = coded_sequences.shape[-1]

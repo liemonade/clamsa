@@ -17,7 +17,7 @@ def num_leaves(forest):
         Returns:
             (list(int)): Number of leaves encountered in any tree.
     '''
-    num_leaves = [len(msa_converter.leave_order(t)) for t in forest]
+    num_leaves = [len(msa_converter.leaf_order(t)) for t in forest]
 
     return num_leaves
 
@@ -121,6 +121,8 @@ def parse_tfrecord_entry(entry, num_leaves, alphabet_size):
     sequence_onehot = tf.pad(sequence_onehot, paddings, constant_values=1)
     
     sequence_onehot = tf.cast(sequence_onehot, tf.float64)
+    clade_id = tf.cast(clade_id, tf.int32)
+    model = tf.cast(model, tf.int32)
     
     # return the transformed example
     return tf.tuple([model, clade_id, sequence_length, sequence_onehot])
@@ -190,13 +192,56 @@ def get_datasets(folder, basename, wanted_splits, num_leaves, alphabet_size, see
                 split_ds[model] =  split_ds[model].concatenate(dataset) if split_ds[model] != None else dataset
                 
             if split.repeat_models != None and split.repeat_models[mid]:
-                split_ds[model].repeat()
+                split_ds[model] = split_ds[model].repeat()
         
         if split.interweave_models != None:
-            split_ds = tf.data.experimental.sample_from_datasets(list(split_ds.values()), weights = split.interweave_models, seed = seed) # percentages of neg and pos
+            if split.interweave_models == True:
+                sd = None
+                for m in split_ds:
+                    sd = sd.concatenate(split_ds[m]) if sd != None else split_ds[m]
+                split_ds = sd
+            else:
+                split_ds = tf.data.experimental.sample_from_datasets(list(split_ds.values()), weights = split.interweave_models, seed = seed) # percentages of neg and pos
             split_ds = split_ds.shuffle(buffer_size = buffer_size, seed = seed)
         
         
         datasets[split.name] = split_ds
     
     return datasets
+
+
+
+def concatenate_dataset_entries(models, clade_ids, sequence_lengths, sequences):
+    """
+    Preprocessing function to concatenate a zero-padded batch of
+    variable-length sequences into a single sequence.
+    """
+    
+    concat_sequences = tf.cast(
+        tf.boolean_mask(sequences, tf.sequence_mask(sequence_lengths)), 
+        dtype = tf.float64)
+    
+    models_onehot = tf.one_hot(models, depth = 2)
+    
+    X = (concat_sequences, tf.repeat(clade_ids, sequence_lengths, axis=0), sequence_lengths)
+    y = models_onehot
+    
+    return (X,y)
+
+
+def padded_batch(dataset, batch_size, num_leaves, alphabet_size):
+    """
+    Retrieve a zero-padded batch of variable length sequences.
+    """
+    padded_shapes = ([], [], [], [None, max(num_leaves), alphabet_size])
+    dataset = dataset.padded_batch(batch_size, 
+                                   padded_shapes = padded_shapes, 
+                                   padding_values = (
+                                       tf.constant(0, tf.int32),
+                                       tf.constant(0, tf.int32), 
+                                       tf.constant(0, tf.int64), 
+                                       tf.constant(1.0, tf.float64))
+                                  )
+    
+    return dataset
+

@@ -3,3 +3,8 @@ clades/
 msa/
 *.pyc
 .ipynb_checkpoints
+experiments/logs/
+experiments/saved_weights/
+experiments/*.log
+experiments/*.sh
+experiments/*.pdf
