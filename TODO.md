@@ -5,6 +5,7 @@
  - [ ] 4) Compute cross-training accuracy human version on fly test set and fly version on human test set.  
  - [ ] 5) Train wth a mixed human and fly training set and evaluate on human and fly test set.
  - [ ] 6) Conditaional on relative success: Compile set of labeled plant alignments, tree and training and test sets.
+ - [ ] 7) Optional: compare to a second tool, PAML that computes omega=dN/dS
   
 # Programming tasks
   - [x] a) Implement ```--to_phylocsf``` option.
