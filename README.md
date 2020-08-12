@@ -23,7 +23,7 @@ Synchronous export to tensorflow records and PhyloCSF files:
 ./aladdin.py convert augustus sample2.out \
    --subsample_lengths  \
    --ratio_neg_to_pos 2 \
-   --tf_out_dir tf \
+   --tf_out_dir tf_out \
    --phylocsf_out_dir PhyloCSF \
    --splits '{"train": -1, "test": 100, "val1": 30, "val2": 10}' \
    --use_codons \
@@ -57,5 +57,45 @@ number of PhyloCSF records written [rows: split bin s, column: model/label m]:
  [ 19.  11.]
  [  7.   3.]]
 The datasets have sucessfully been saved in PhyloCSF files.
+
+```
+
+We can use these Tensorflow .tfrecords files to train a set of models with multiple hyperparameter configurations in the following way:
+```
+./aladdin.py train tf_out \
+	--basename aug-fly \
+	--clades tree.nwk \
+	--split_specification '{
+		"train": {"name": "train", "wanted_models": [0, 1], "interweave_models": [0.67, 0.33], "repeat_models": [true, true]},
+		"val": {"name": "val1", "wanted_models": [0, 1], "interweave_models": true, "repeat_models": [false, false]},
+		"test": {"name": "test", "wanted_models": [0, 1], "interweave_models": true, "repeat_models": [false, false]}
+	}' \
+	--used_codons \
+	--model_hyperparameters '{
+		"tcmc_rnn": {
+			"tcmc_models": [1,4,8],
+			"rnn_type": ["lstm","gru"],
+			"rnn_units": [32,64],
+			"dense_dimension": [16]
+		}, 
+		"tcmc_mean_log": {
+			"tcmc_models": [1,4,8],
+				"sequence_length_as_feature": [false,true],
+				"dense1_dimension": [0,8,16],
+				"dense2_dimension": [0,16]
+			}
+	}' \
+	--model_training_callbacks '{
+		"tcmc_rnn": {},
+		"tcmc_mean_log": {}
+	}' \
+	--batch_size 30 \
+	--batches_per_epoch 100 \
+	--epochs 40 \
+	--save_model_weights \
+	--log_basedir 'logs' \
+	--saved_weights_basedir 'saved_weights' \
+	--verbose \
+	| tee aug-fly_train.log
 
 ```
