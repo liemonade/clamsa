@@ -578,7 +578,7 @@ def plot_lenhist(msas, use_codons, id = "unfiltered"):
     fig.savefig("lendist-oe-" + id + ".pdf", format = 'pdf')
     return [mlen, labels]
 
-def subsample_lengths(msas, use_codons, max_sequence_length = 14999, min_sequence_length = 1):
+def subsample_lengths(msas, use_codons, max_sequence_length = 14999, min_sequence_length = 1, relax = 1):
     """ Subsample the [short] negatives so that
         the length distribution is very similar to that of the positives.
         Negative examples (model=0) of a length that is overrepresented compared to the
@@ -589,6 +589,9 @@ def subsample_lengths(msas, use_codons, max_sequence_length = 14999, min_sequenc
         use_codons: msas will be interpreted as a codon alignment
         max_sequence_length: upper bound on number of codons
         min_sequence_length: lower bound on number of codons
+        relax: >=1, factor for subsampling probability, if > 1, the 
+               subsampling deliveres more data but the negative length
+               distribution fits not as closely.
     Returns:
         filtered_msas: a subset of the input
     """
@@ -626,7 +629,7 @@ def subsample_lengths(msas, use_codons, max_sequence_length = 14999, min_sequenc
         """ The offsets to the averaging interval, equal offsets leads to systematic overestimation
             Up to a length of 100 there is no smoothing. Beyond that, it is increasing.
         """
-        return [int(.03 * max(slen - 100, 0)), int(.06 * max(slen - 100, 0))]
+        return [int(.04 * max(slen - 100, 0)), int(.1 * max(slen - 100, 0))]
 
     for slen in range(1, max_subsample):
         r1, r2 = radius(slen)
@@ -635,6 +638,7 @@ def subsample_lengths(msas, use_codons, max_sequence_length = 14999, min_sequenc
         ratio_smooth[slen] = np.mean(ratio[a : b + 1])
 
     ratio_smooth /= np.max(ratio_smooth)
+    ratio_smooth = np.minimum(ratio_smooth * relax, 1.0)
 
     fig, ax = plt.subplots(figsize = (6, 6))
     ax.plot(ratio_smooth, "b-")
@@ -648,7 +652,7 @@ def subsample_lengths(msas, use_codons, max_sequence_length = 14999, min_sequenc
              filtered_msas.append(msa)
 
     plot_lenhist(filtered_msas, use_codons, id = "subsampled")
-    print ("Subsampling based on lengths has reduced the number of alignents from",
+    print ("Subsampling based on lengths has reduced the number of alignments from",
            len(msas), "to", len(filtered_msas))
     return filtered_msas
     
