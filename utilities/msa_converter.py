@@ -252,6 +252,21 @@ def import_fasta_training_file(paths, undersample_neg_by_factor = 1., reference_
         reference_clades (newick.Node): Root of a reference clade. The given order of species in this tree will be used in the input file(s). 
         margin_width (int): Width of flanking region around sequences
     
+        * Example for input fasta file
+        *
+        * >species_name_1|101001110
+        * acaatcggt
+        * >species_name_2
+        * acaat---t
+        *
+        * The numbers after the species name determine the models for every column of the aligment. 
+        * If you have e.g. a codonwise aligment, you can use one model for 3 columns in the aligment
+        *
+        * >species_name_1|101
+        * acaatcggt
+        * >species_name_2
+        * acaatt---
+    
     Returns:
         List[MSA]: Training examples read from the file(s).
         List[List[str]]: Unique species configurations either encountered or given by reference.
@@ -259,9 +274,7 @@ def import_fasta_training_file(paths, undersample_neg_by_factor = 1., reference_
     """
     
     training_data = []
-    
-    model = 0 # TODO: right model
-    
+        
     # If clades are specified the leave species will be imported.
     species = [leaf_order(c) for c in reference_clades] if reference_clades != None else []
 
@@ -271,22 +284,19 @@ def import_fasta_training_file(paths, undersample_neg_by_factor = 1., reference_
     # Status bar for the reading process
     pbar = tqdm(total = total_bytes, desc = "Parsing FASTA file(s)", unit = 'b', unit_scale = True)
     
-    fasta_files = [gzip.open(path, 'rt') if path.endswith('.gz') else open(path, 'r') for path in paths]
-    
+    fasta_files = [gzip.open(path, 'rt') if path.endswith('.fasta.gz') else open(path, 'r') for path in paths]
+   
     for fasta in fasta_files:
-              
-        # decide whether the upcoming entry should be skipped
-        skip_entry = model == 0 and random.random() > 1. / undersample_neg_by_factor
-
-        if skip_entry:
-            continue
             
         bytes_read = fasta.tell()
         entries = [rec for rec in SeqIO.parse(fasta, "fasta")]
 
         # parse the species names
         spec_in_file = [e.id.split('|')[0] for e in entries]
-
+        
+        # parse the models
+        models_in_file = entries[0].id.split('|')[1] 
+        
         # compare them with the given references
         ref_ids = [[(r,i) for r in range(len(species)) for i in range(len(species[r])) if s in species[r][i] ] for s in spec_in_file]
 
@@ -304,26 +314,31 @@ def import_fasta_training_file(paths, undersample_neg_by_factor = 1., reference_
         # read the sequences and trim them if wanted
         sequences = [str(rec.seq).lower() for rec in entries]
         sequences = sequences[margin_width:-margin_width] if margin_width > 0 else sequences
-
-        msa = MSA(
-                model = model,
-                chromosome_id = None, 
-                start_index = None,
-                end_index = None,
-                is_on_plus_strand = True, # TODO: determine right strand
-                frame = 0, # TODO: determine right frame
-                spec_ids = ref_ids,
-                offsets = [],
-                sequences = sequences
-        )
         
+        if len(sequences[0]) % len(models_in_file) == 0:
+            alphabet_len = int(len(sequences[0]) / len(models_in_file)) # e.g. 1 for amino acids or 3 for codons
+        else:
+            raise ValueError("Wrong number of models.")
+                      
+        for i in range(0, len(models_in_file)):
+            seq_column = [sequences[j][alphabet_len * i : alphabet_len * i + alphabet_len] for j in range(len(sequences))]
+            msa = MSA(
+                    model = int(models_in_file[i]),
+                    chromosome_id = None, 
+                    start_index = None,
+                    end_index = None,
+                    is_on_plus_strand = True,
+                    frame = 0,
+                    spec_ids = ref_ids,
+                    offsets = [],
+                    sequences = seq_column
+            )        
         training_data.append(msa)
         
         pbar.update(fasta.tell() - bytes_read)
         bytes_read = fasta.tell()
         
     return training_data, species
-
 
 def import_augustus_training_file(paths, undersample_neg_by_factor = 1., alphabet=['a', 'c', 'g', 't'],
                                   reference_clades = None, margin_width = 0):
