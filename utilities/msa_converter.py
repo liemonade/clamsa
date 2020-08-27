@@ -259,8 +259,8 @@ def import_fasta_training_file(paths, undersample_neg_by_factor = 1., reference_
         * >species_name_2
         * acaat---t
         *
-        * The numbers after the species name determine the models for every column of the aligment. 
-        * If you have e.g. a codonwise aligment, you can use one model for 3 columns in the aligment
+        * The numbers after the species name determine the models for every column of the alignment. 
+        * If you have e.g. an aligment of codons, you can use one model for 3 columns in the alignment
         *
         * >species_name_1|101
         * acaatcggt
