@@ -284,8 +284,8 @@ def import_fasta_training_file(paths, undersample_neg_by_factor = 1., reference_
     # Status bar for the reading process
     pbar = tqdm(total = total_bytes, desc = "Parsing FASTA file(s)", unit = 'b', unit_scale = True)
     
-    fasta_files = [gzip.open(path, 'rt') if path.endswith('.fasta.gz') else open(path, 'r') for path in paths]
-   
+    fasta_files = [gzip.open(path, 'rt') if path.endswith('.gz') else open(path, 'r') for path in paths]
+    
     for fasta in fasta_files:
             
         bytes_read = fasta.tell()
