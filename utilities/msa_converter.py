@@ -320,8 +320,13 @@ def import_fasta_training_file(paths, undersample_neg_by_factor = 1., reference_
         else:
             raise ValueError("Wrong number of models.")
                       
-        for i in range(0, len(models_in_file)):
-            seq_column = [sequences[j][alphabet_len * i : alphabet_len * i + alphabet_len] for j in range(len(sequences))]
+        for i in range(len(models_in_file)):
+            # decide whether the upcoming entry should be skipped
+            skip_entry = models_in_file[i] == '0' and random.random() > 1. / undersample_neg_by_factor
+            if skip_entry:
+                continue
+                
+            msa_column = [sequences[j][alphabet_len * i : alphabet_len * i + alphabet_len] for j in range(len(sequences))]
             msa = MSA(
                     model = int(models_in_file[i]),
                     chromosome_id = None, 
@@ -331,7 +336,7 @@ def import_fasta_training_file(paths, undersample_neg_by_factor = 1., reference_
                     frame = 0,
                     spec_ids = ref_ids,
                     offsets = [],
-                    sequences = seq_column
+                    sequences = msa_column
             )        
         training_data.append(msa)
         
