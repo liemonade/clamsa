@@ -1,9 +1,13 @@
-import tensorflow as tf
 import sys
 sys.path.append("..")
+import tensorflow as tf
+import matplotlib.pyplot as plt
+import seaborn as sns
+from functools import partial
 
 
 from utilities import database_reader
+from utilities import visualization
 from tf_tcmc.tcmc.tcmc import TCMCProbability
 from tf_tcmc.tcmc.tensor_utils import BatchedSequences
 
@@ -42,7 +46,7 @@ def create_model(forest,
     # assemble the computational graph
     P = tcmc_layer(sequences, clade_ids)
     log_P = log_layer(P) 
-    batched_log_P = bs_layer([log_P, sequence_lengths])
+    batched_log_P = bs_layer(log_P, sequence_lengths)
     rnn_P = rnn_layer(batched_log_P)
     dense = dense_layer(rnn_P)
     guesses = guesses_layer(dense)
@@ -52,5 +56,23 @@ def create_model(forest,
     return model
 
 
-def training_callbacks():
+
+
+
+
+def training_callbacks(model, logdir, wanted_callbacks):
+    
     return []
+    
+    tcmc = model.get_layer("P_sequence_columns")
+    
+    file_writer = tf.summary.create_file_writer(f'{logdir}/images/aa')
+    
+    log_aa = partial(log_amino_acid_probability_distribution, tcmc=tcmc, file_writer=file_writer, model_id=0, t=0)
+    
+    aa_callback = tf.keras.callbacks.LambdaCallback(on_epoch_end=log_aa)
+    
+    return [aa_callback]
+
+
+

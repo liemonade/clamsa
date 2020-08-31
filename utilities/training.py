@@ -31,8 +31,9 @@ for gpu in gpus:
         
         
 def train_models(input_dir, 
-          basename,
+          basenames,
           clades,
+          merge_behaviour = 'evenly',
           split_specifications  = {
               'train': {'name': 'train', 'wanted_models': [0, 1], 'interweave_models': [.67, .33], 'repeat_models': [True, True]},
               'val': {'name': 'val', 'wanted_models': [0, 1], 'interweave_models': True, 'repeat_models': [False, False]},
@@ -69,13 +70,10 @@ def train_models(input_dir,
     TODO: Write Docstring
     """
     
-    
-    
     # calculate some features from the input
     num_leaves = database_reader.num_leaves(clades)
     entry_length = 3 if used_codons else 1
     alphabet_size = 4 ** entry_length
-
 
     # evaluate the split specifications
     splits = {'train': None, 'val': None, 'test': None}
@@ -89,13 +87,42 @@ def train_models(input_dir,
 
 
 
+    # read the datasets for each wanted basename
     wanted_splits = [split for split in splits.values() if split != None ]
-    datasets = database_reader.get_datasets(input_dir, basename, wanted_splits, num_leaves = num_leaves, alphabet_size = alphabet_size, seed = None, buffer_size = 1000)
+    unmerged_datasets = {b: database_reader.get_datasets(input_dir, b, wanted_splits, num_leaves = num_leaves, alphabet_size = alphabet_size, seed = None, buffer_size = 1000, should_shuffle=True) for b in basenames}
 
-
-    if 'train' not in datasets:
+    if any(['train' not in unmerged_datasets[b] for b in basenames]):
         raise Exception("A 'train' split must be specified!")
 
+    
+    # merge the respective splits of each basename
+    datasets = {}
+    
+    merge_behaviour = merge_behaviour if len(merge_behaviour) > 1 else merge_behaviour[0]
+    
+    weights = len(basenames) * [1/len(basenames)]
+    
+
+    # check whether the costum weights are correct
+    if len(merge_behaviour) > 1:
+        
+        # expecting a list of weights
+        try:
+            merge_behaviour = [float(w) for w in merge_behaviour]
+        except ValueError:
+            print(f'Expected a list of floats in merge_behaviour. However merge_behaviour = {merge_behaviour}')
+            print(f'Will use even merge_behaviour = {weights} instead.')
+            
+        if len(merge_behaviour) == len(basenames) \
+            and all([isinstance(x, float) for x in merge_behaviour]) \
+            and all([x >= 0 for x in merge_behaviour]) \
+            and sum(merge_behaviour) == 1:
+            weights = merge_behaviour
+    
+    
+    merge_ds = tf.data.experimental.sample_from_datasets
+    datasets = {s: merge_ds([unmerged_datasets[b][s] for b in basenames], weights) for s in splits.keys()}
+        
 
     # prepare datasets for batching
     for split in datasets:
@@ -140,6 +167,7 @@ def train_models(input_dir,
 
     # obtain the model creation functions for the wanted models
     model_creaters = {}
+    model_training_callbacks = {}
 
     for model_name in model_hyperparameters.keys():
 
@@ -151,6 +179,11 @@ def train_models(input_dir,
             model_creaters[model_name] = getattr(model_module, "create_model")
         except AttributeError as err:
             raise Exception(f'The model "{model_name}" has no creation function "create_model" in "models/{model_name}.py".')
+        try:
+            model_training_callbacks[model_name] = getattr(model_module, "training_callbacks")
+        except AttributeError as err:
+            raise Exception(f'The model "{model_name}" has no training callbacks function "training_callbacks" in "models/{model_name}.py".')
+
 
     #prepare the hyperparams for training
     for model_name in model_hyperparameters:
@@ -175,7 +208,8 @@ def train_models(input_dir,
         hp_values = [hps[k].domain.values for k in hp_names]
 
         # log the wanted hyperparams and metrics 
-        logdir = f'{log_basedir}/{basename}/{model_name}'
+        str_basenames = '_'.join(basenames)
+        logdir = f'{log_basedir}/{str_basenames}/{model_name}'
         with tf.summary.create_file_writer(logdir).as_default():
 
             hp.hparams_config(
@@ -200,7 +234,7 @@ def train_models(input_dir,
 
             rundir = f'{logdir}/{now_str}'
 
-            save_weights_dir = f'{saved_weights_basedir}/{basename}/{model_name}'
+            save_weights_dir = f'{saved_weights_basedir}/{str_basenames}/{model_name}'
             Path(save_weights_dir).mkdir(parents=True, exist_ok=True)
             save_weights_path = f'{save_weights_dir}/{now_str}.h5'
 
@@ -261,6 +295,9 @@ def train_models(input_dir,
 
                 if datasets['val'] != None:
                     callbacks = callbacks + [checkpoint_cb, learnrate_cb]
+                    
+                training_callbacks = model_training_callbacks[model_name]
+                callbacks = callbacks + training_callbacks(model, rundir, wanted_callbacks=None)
 
 
                 model.fit(datasets['train'], 

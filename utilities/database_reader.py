@@ -143,7 +143,7 @@ class DatasetSplitSpecification(object):
 
 
 
-def get_datasets(folder, basename, wanted_splits, num_leaves, alphabet_size, seed = None, buffer_size = 1000, used_compression = True):
+def get_datasets(folder, basename, wanted_splits, num_leaves, alphabet_size, seed = None, buffer_size = 1000, used_compression = True, should_shuffle=False):
     '''
     Reads all tfrecord files in a folder with a given base name and returns them in splits.
 
@@ -202,7 +202,9 @@ def get_datasets(folder, basename, wanted_splits, num_leaves, alphabet_size, see
                 split_ds = sd
             else:
                 split_ds = tf.data.experimental.sample_from_datasets(list(split_ds.values()), weights = split.interweave_models, seed = seed) # percentages of neg and pos
-            split_ds = split_ds.shuffle(buffer_size = buffer_size, seed = seed)
+                
+            if should_shuffle:
+                split_ds = split_ds.shuffle(buffer_size = buffer_size, seed = seed)
         
         
         datasets[split.name] = split_ds
@@ -229,6 +231,17 @@ def concatenate_dataset_entries(models, clade_ids, sequence_lengths, sequences):
     return (X,y)
 
 
+# TODO: These two functions behave nearly the same. Unify them!
+def concat_sequences(clade_ids, sequence_lengths, sequences):
+    concat_sequences = tf.cast(
+        tf.boolean_mask(sequences, tf.sequence_mask(sequence_lengths)), 
+        dtype = tf.float64)
+    
+    X = (concat_sequences, tf.repeat(clade_ids, sequence_lengths, axis=0), sequence_lengths)
+    
+    return (X, None)
+
+
 def padded_batch(dataset, batch_size, num_leaves, alphabet_size):
     """
     Retrieve a zero-padded batch of variable length sequences.
@@ -244,4 +257,5 @@ def padded_batch(dataset, batch_size, num_leaves, alphabet_size):
                                   )
     
     return dataset
+
 

@@ -8,8 +8,10 @@ import json
 import numbers
 import newick
 from pathlib import Path
+import pandas as pd
 
 import utilities.msa_converter as mc
+import utilities.model_evaluation as me
 #from utilities.training import train_models
 
 
@@ -86,7 +88,7 @@ class Aladdin(object):
 Use one of the following commands:
    convert    Create an MSA dataset ready for usage in aladdin
    train      Train aladdin on an MSA dataset with given models
-   evaluate   Infer likelihood for any given MSA in a dataset to be an exon
+   predict   Infer likelihood for any given MSA in a dataset to be an exon
 ''')
         parser.add_argument('command', help='Subcommand to run')
 
@@ -122,7 +124,8 @@ Use one of the following commands:
         
         parser.add_argument('--basename',
                 metavar = 'BASENAME',
-                help = 'The base name of the output files to be generated. By default a concatination of the input files is used.')
+                help = 'The base name of the output files to be generated. By default a concatination of the input files is used.',
+        )
 
         parser.add_argument('--phylocsf_out_dir',
                 help = 'Specifies that the MSA database should (also) be converted to PhyloCSF format.',
@@ -264,9 +267,10 @@ Use one of the following commands:
                             type = folder_is_writable_if_exists,
         )
         
-        parser.add_argument('--basename',
-                            metavar = 'BASENAME',
+        parser.add_argument('--basenames',
+                            metavar = 'BASENAMES',
                             help = 'The base name of the input files.',
+                            nargs='+',
         )
         
         
@@ -274,6 +278,12 @@ Use one of the following commands:
                             help='Path(s) to the clades files (.nwk files, with branch lengths) used in the converting process. CAUTION: The same ordering as in the converting process must be used!',
                             metavar='CLADES',
                             type=file_exists,
+                            nargs='+',
+        )
+        
+        parser.add_argument('--merge_behaviour',
+                            metavar='MERGE_BEHAVIOUR',
+                            help='In which ratio the respective splits for each basename shall be merged. The possible modes are: "evenly", "columns", "sequences", "w_1 ... w_n". Where "evenly" means all basenames have the same weight. In the mode "columns" the total number of alignment columns for each basename is counted and the weights are adjusted accordingly. In mode "sequences" the total number of sequences for each basename is counted and the weights are adjusted accordingly. Lastly a set of costum weights can be given directly. Default is "evenly".',
                             nargs='+',
         )
         
@@ -362,8 +372,9 @@ Use one of the following commands:
         
         
         train_models(args.input_dir, 
-                     args.basename,
+                     args.basenames,
                      args.clades,
+                     args.merge_behaviour,
                      args.split_specifications,
                      args.used_codons,
                      args.model_hyperparameters,
@@ -377,6 +388,112 @@ Use one of the following commands:
                      args.verbose,
         )
         
+    
+    def predict(self):
+        
+        
+        parser = argparse.ArgumentParser(
+                description='Evaluate a series of models on an input multiple sequence alignments.')
+
+        parser.add_argument('in_type', 
+                choices=['fasta'],
+                metavar='INPUT_TYPE',
+                help='Choose which type of input file(s) should be predicted. Supported are: {fasta}',
+        )
+        
+
+        parser.add_argument('input', 
+                            metavar='INPUT',
+                            help='A path to a text file containing paths to files of the chosen input type.',
+                            type=file_exists,
+                            nargs='+',
+        )
+        
+        
+        
+        
+        
+        parser.add_argument('--clades', 
+                            help='Path(s) to the clades files (.nwk files, with branch lengths) used in the converting process. CAUTION: The same ordering as in the converting process must be used!',
+                            metavar='CLADES',
+                            type=file_exists,
+                            nargs='+',
+        )
+        
+        
+        parser.add_argument('--use_codons', 
+                            help = 'The MSAs will be exported as codon-aligned codon sequences instead of nucleotide alignments.',
+                            action = 'store_true',
+        )
+        
+        
+        
+        parser.add_argument('--batch_size',
+                            help='Number of MSAs to evaluate per computation step. Higher batch sizes increase the speed of evaluation, though require more RAM / VRAM in the case of CPU / GPU evaluation.',
+                            metavar='BATCH_SIZE',
+                            type=int,
+                            default=30,
+        )
+        
+        parser.add_argument('--log_basedir',
+                            metavar='LOG_BASEDIR',
+                            help='Folder in which the Tensorboard training logs are stored. Defaults to "./logs/"',
+                            type = folder_is_writable_if_exists,
+        )
+        
+        
+        parser.add_argument('--saved_weights_basedir',
+                            metavar='SAVED_WEIGHTS_BASEDIR',
+                            help='Folder in which the weights for the best performing models are stored. Defaults "./saved_weights/"',
+                            type = folder_is_writable_if_exists,
+        )
+        
+        
+        parser.add_argument('--model_ids',
+                            metavar='MODEL_IDS',
+                            help='Trial-IDs of trained models residing in the LOG_BASEDIR folder with weights stored in SAVED_WEIGHTS_BASEDIR.',
+                            type=is_valid_json,
+                           )
+        
+        
+        parser.add_argument('--out_csv', 
+                           metavar='OUT_CSV',
+                           help='Output file name for the *.csv file containing the predictions.',
+        )
+        
+        # ignore the initial args specifying the command
+        args = parser.parse_args(sys.argv[2:])
+        
+        
+        
+        # import the list of fasta file paths
+        fasta_paths = []
+        for fl in args.input:
+            with open(fl) as f:
+                fasta_paths = fasta_paths + f.read().splitlines()
+
+    
+        # predict on the wanted files
+        preds, used_fasta_paths = me.predict_on_fasta_files(trial_ids=args.model_ids,
+                                          saved_weights_dir=args.saved_weights_basedir,
+                                          log_dir=args.log_basedir,
+                                          clades=args.clades,
+                                          fasta_paths = fasta_paths,
+                                          use_codons = args.use_codons,
+                                          batch_size=args.batch_size,
+        )
+        
+        
+        # construct a dataframe from the observations
+        preds['path'] = used_fasta_paths
+        df = pd.DataFrame.from_dict(preds)
+        
+        # enumerate the output options
+        if not args.out_csv is None:
+            df.to_csv(args.out_csv)
+        
+    
+    
 def main():
     Aladdin()
     exit(0)

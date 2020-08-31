@@ -1,9 +1,12 @@
-import tensorflow as tf
 import sys
 sys.path.append("..")
+import tensorflow as tf
+from functools import partial
+
 
 
 from utilities import database_reader
+from utilities import visualization
 from tf_tcmc.tcmc.tcmc import TCMCProbability
 from tf_tcmc.tcmc.tensor_utils import segment_ids
 
@@ -66,6 +69,34 @@ def create_model(forest,
     model = tf.keras.Model(inputs = [sequences, clade_ids ,sequence_lengths], outputs = guesses, name = name)
     
     return model
+
+
+
+
+
+
+def training_callbacks(model, logdir, wanted_callbacks):
+    
+    return []
+    tcmc = model.get_layer("P_sequence_columns")
+    
+    file_writer_aa = tf.summary.create_file_writer(f'{logdir}/images/aa')
+    file_writer_gen = tf.summary.create_file_writer(f'{logdir}/images/Q')
+    
+    log_aa = partial(log_amino_acid_probability_distribution, tcmc=tcmc, file_writer=file_writer_aa, model_id=0, t=1)
+    log_gen = partial(log_generator, tcmc=tcmc, file_writer=file_writer_gen, model_id=0)
+    
+    aa_callback = tf.keras.callbacks.LambdaCallback(on_epoch_end=log_aa)
+    
+    gen_callback = tf.keras.callbacks.LambdaCallback(on_epoch_end=log_gen)
+    
+    return [aa_callback, gen_callback]
+
+
+
+
+
+
 
 
 class SequenceLogLikelihood(tf.keras.layers.Layer):
