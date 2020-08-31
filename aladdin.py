@@ -175,7 +175,9 @@ Use one of the following commands:
         parser.add_argument('--subsample_lengths',
                 help = 'Negative examples of overrepresented length are undersampled so that the length distributions of positives and negatives are similar. Defaults to false.',
                 action = 'store_true')
-
+        parser.add_argument('--subsample_lengths_relax',
+                help = 'Factor for length subsampling probability of negatives. If > 1, the subsampling delivers more data but the negative length distribution fits not as closely that of the positives. Default=1.0', type=float, default=1.0)
+        
         parser.add_argument('--verbose',
                 help = 'Whether some logging of the import and export should be performed.',
                 action = 'store_true')
@@ -209,7 +211,7 @@ Use one of the following commands:
         
         # harmonize the length distributions if requested
         if args.subsample_lengths:
-            T = mc.subsample_lengths(T, args.use_codons)
+            T = mc.subsample_lengths(T, args.use_codons, relax=args.subsample_lengths_relax)
         
         # achieve the requested ratio of negatives to positives
         if args.ratio_neg_to_pos:
