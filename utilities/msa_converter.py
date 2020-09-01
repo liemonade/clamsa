@@ -338,7 +338,7 @@ def import_fasta_training_file(paths, undersample_neg_by_factor = 1., reference_
                     offsets = [],
                     sequences = msa_column
             )        
-        training_data.append(msa)
+            training_data.append(msa)
         
         pbar.update(fasta.tell() - bytes_read)
         bytes_read = fasta.tell()
