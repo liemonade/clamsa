@@ -7,6 +7,7 @@ from pathlib import Path
 import inspect
 from Bio import SeqIO
 import numpy as np
+import collections
 
 import sys
 sys.path.append("..")
@@ -215,7 +216,7 @@ def parse_fasta_file(fasta_path, clades, margin_width=0):
     
     
     
-def predict_on_fasta_files(trial_ids,
+def predict_on_fasta_files(trial_ids, # OrderedDict of model ids with keys like 'tcmc_rnn'
                            saved_weights_dir,
                            log_dir,
                            clades,
@@ -236,7 +237,7 @@ def predict_on_fasta_files(trial_ids,
     
 
     # load the wanted models and compile them
-    models = {name: recover_model(trial_ids[name], clades, alphabet_size, log_dir, saved_weights_dir) for name in trial_ids}
+    models = collections.OrderedDict( (name, recover_model(trial_ids[name], clades, alphabet_size, log_dir, saved_weights_dir)) for name in trial_ids)
     accuracy_metric = 'accuracy'
     auroc_metric = tf.keras.metrics.AUC(num_thresholds = 1000, dtype = tf.float32, name='auroc')
     loss = tf.keras.losses.CategoricalCrossentropy()
@@ -271,12 +272,10 @@ def predict_on_fasta_files(trial_ids,
 
 
     # predict on each model
-    preds = {}
+    preds = collections.OrderedDict()
     
-    for n in models:
-        
+    for n in models:        
         model = models[n]
-        
         preds[n] = model.predict(dataset)[:,1]
         
     return preds, [s['path'] for s in fasta_sequences]

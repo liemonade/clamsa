@@ -9,6 +9,7 @@ import numbers
 import newick
 from pathlib import Path
 import pandas as pd
+import collections
 
 import utilities.msa_converter as mc
 import utilities.model_evaluation as me
@@ -62,9 +63,9 @@ def folder_is_writable_if_exists(arg):
 
 def is_valid_split(arg):
     try:
-        splits = json.loads(arg)
+        splits = json.loads(arg, object_pairs_hook=OrderedDict) # so the input order is kept
         if not isinstance(splits, dict):
-            argparse.ArgumentTypeError(f'The provided split {arg} does not represent a dictionairy!')
+            argparse.ArgumentTypeError(f'The provided split {arg} does not represent a dictionary!')
         for split in splits:
             if not isinstance(splits[split], numbers.Number):
                 raise argparse.ArgumentTypeError(f'The provided value "{splits[split]}" for the split "{split}" is not a number!')
@@ -395,25 +396,23 @@ Use one of the following commands:
         
         
         parser = argparse.ArgumentParser(
-                description='Evaluate a series of models on an input multiple sequence alignments.')
+                description='Predict the class of multiple sequence alignments with one or more models.')
 
-        parser.add_argument('in_type', 
+        parser.add_argument('in_type',
                 choices=['fasta'],
                 metavar='INPUT_TYPE',
-                help='Choose which type of input file(s) should be predicted. Supported are: {fasta}',
+                help='Specif the input file type. Supported are: {fasta}',
         )
         
 
         parser.add_argument('input', 
                             metavar='INPUT',
-                            help='A path to a text file containing paths to files of the chosen input type.',
+                            help='A comma separated list of paths to text files containing themselves paths to MSA files of the chosen input type. Each MSA file contains a single alignment.',
                             type=file_exists,
                             nargs='+',
         )
         
-        
-        
-        
+                
         
         parser.add_argument('--clades', 
                             help='Path(s) to the clades files (.nwk files, with branch lengths) used in the converting process. CAUTION: The same ordering as in the converting process must be used!',
@@ -474,7 +473,8 @@ Use one of the following commands:
             with open(fl) as f:
                 fasta_paths = fasta_paths + f.read().splitlines()
 
-    
+        model_ids = collections.OrderedDict(args.model_ids) # to fix the models order as in the command-line argument
+
         # predict on the wanted files
         preds, used_fasta_paths = me.predict_on_fasta_files(trial_ids=args.model_ids,
                                           saved_weights_dir=args.saved_weights_basedir,
@@ -486,13 +486,15 @@ Use one of the following commands:
         )
         
         
-        # construct a dataframe from the observations
+        # construct a dataframe from the predictions
         preds['path'] = used_fasta_paths
+        preds.move_to_end('path', last = False) # move MSA file name to front
         df = pd.DataFrame.from_dict(preds)
-        
-        # enumerate the output options
+
         if not args.out_csv is None:
-            df.to_csv(args.out_csv)
+            df.to_csv(args.out_csv, sep='\t',
+                      float_format = '%.4f', # output precision
+                      index=False) # no row numbering
         
     
     
