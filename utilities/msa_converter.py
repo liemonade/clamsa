@@ -595,7 +595,6 @@ def import_phylocsf_training_file(paths, undersample_neg_by_factor = 1., referen
 
         for i, phylo_file in enumerate(phylo_files):
             for j, fasta in enumerate(fastas[i]):
-                
                 model = 0 if 'control' in fasta.filename else 1
                 
                 # decide whether the upcoming entry should be skipped
@@ -606,8 +605,7 @@ def import_phylocsf_training_file(paths, undersample_neg_by_factor = 1., referen
                 
                 with io.TextIOWrapper(phylo_file.open(fasta), encoding="utf-8") as fafile:
 
-                    entries = [rec for rec in SeqIO.parse(fafile, "fasta")]
-                    
+                    entries = list(SeqIO.parse(fafile, "fasta"))
                     # parse the species names
                     spec_in_file = [e.id.split('|')[0] for e in entries]
                     
@@ -627,6 +625,11 @@ def import_phylocsf_training_file(paths, undersample_neg_by_factor = 1., referen
 
                     # the first entry of the fasta file has the header informations
                     header_fields = entries[0].id.split("|")
+                    locus  = header_fields[3].split(":")
+                    seqname = locus[0]
+                    posrange = locus[1].replace(",", "").split("-")
+                    start = int(posrange[0])
+                    end = int(posrange[1])
                     
                     # read the sequences and trim them if wanted
                     sequences = [str(rec.seq).lower() for rec in entries]
@@ -634,19 +637,16 @@ def import_phylocsf_training_file(paths, undersample_neg_by_factor = 1., referen
 
                     msa = MSA(
                             model = model,
-                            chromosome_id = None, 
-                            start_index = None,
-                            end_index = None,
+                            chromosome_id = seqname, 
+                            start_index = start,
+                            end_index = end,
                             is_on_plus_strand = True if len(header_fields) < 5 or header_fields[4] != 'revcomp' else False,
                             frame = int(header_fields[2][-1]),
                             spec_ids = ref_ids,
                             offsets = [],
                             sequences = sequences
                     )
-
-
                     training_data.append(msa)
-
                     pbar.update(fasta.compress_size)
 
     return training_data, species
@@ -955,24 +955,23 @@ def preprocess_export(dataset, species, splits = None, split_models = None,
     n_data = len(dataset)
     requested_sizes = np.array(list(splits.values()))
     negs = np.nonzero(requested_sizes < 0) # maximally fill the negative sizes, e.g. -1
-    
     to_total = lambda x: int(max(x, 0) * n_data) if isinstance(x, float) else max(x, 0)
     
     split_totals = np.array([to_total(x) for x in requested_sizes])
     n_wanted = sum(split_totals)
-    if len(negs) > 0 and n_wanted < n_data:
+    if len(negs[0]) > 0 and n_wanted < n_data:
         # divide the remaining examples between the ones with requested negative size
         each_gets = int((n_data - n_wanted) / len(negs[0]))
         if verbose:
             print("Subsets (splits) with requested negative size each get ", each_gets, "alignents.")
         split_totals[negs] = each_gets
         n_wanted = sum(split_totals) # = n_data
-    print("Split totals:", split_totals)
+    
     
     # rescale accordindly
     if n_wanted > n_data:
         split_totals = split_totals * (n_data / n_wanted)
-
+    print("Split totals:", split_totals)
     # The upper bound indices used to decide where to write the `i`-th entry
     split_bins = np.cumsum(split_totals)
     # print ("split_bins=", split_bins , "\nsplits=", splits, "\nsplit_models=", split_models)
@@ -1111,7 +1110,7 @@ def write_phylocsf(dataset, out_dir, basename, species,
     classnames = ["controls", "exons"]
     subdir_size = 500
     phyloDEBUG = False
-    
+    margin_width = 0
     splitnames = list(splits.keys()) # e.g. train, val1, val2, test
            
     refid = None # 3 (dm) is reference,
@@ -1161,7 +1160,10 @@ def write_phylocsf(dataset, out_dir, basename, species,
             fa.write(">" + phyloCSFspecies[k])
             if j == 0:
                 fa.write("|y=" + str(y) + "|f=" + str(frame))
-                fa.write(" " + msa.chromosome_id + ":" + str(msa.start_index) + "-" + str(msa.end_index))
+                if msa.chromosome_id is not None \
+                   and msa.start_index is not None \
+                   and msa.end_index is not None:
+                    fa.write(" " + msa.chromosome_id + ":" + str(msa.start_index) + "-" + str(msa.end_index))
                 if phyloDEBUG:     
                     fa.write((" +" if msa.is_on_plus_strand else " -") + " phase="  + str(frame))
             fa.write("\n")
