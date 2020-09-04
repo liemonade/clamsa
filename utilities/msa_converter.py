@@ -508,12 +508,12 @@ def parse_fasta_file(fasta_path, clades, use_codons=True, margin_width=0, trans_
     n_refs = [len(x) for x in ref_ids]
 
     if 0 == min(n_refs) or max(n_refs) > 1:
-        return None
+        return -1, 0, None
 
     ref_ids = [x[0] for x in ref_ids]
 
     if len(set(r for (r,i) in ref_ids)) > 1:
-        return None
+        return -1, 0, None
 
     # the first entry of the fasta file has the header informations
     header_fields = entries[0].id.split("|")
