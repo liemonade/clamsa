@@ -2,7 +2,7 @@
 
 import sys
 import os
-import argparse
+import argparse, textwrap
 import configparser
 import json
 import numbers
@@ -84,12 +84,16 @@ class Aladdin(object):
 
     def __init__(self):
         parser = argparse.ArgumentParser(
+            description='''
+Discriminative evolutionary classification of alignments.
+Authors: Darvin Mertsch, Mario Stanke
+''',
             usage = '''aladdin.py <command> [<args>]
 
 Use one of the following commands:
    convert    Create an MSA dataset ready for usage in aladdin
    train      Train aladdin on an MSA dataset with given models
-   predict   Infer likelihood for any given MSA in a dataset to be an exon
+   predict    Infer probability for an MSA to be a coding exon
 ''')
         parser.add_argument('command', help='Subcommand to run')
 
@@ -396,7 +400,8 @@ Use one of the following commands:
         
         
         parser = argparse.ArgumentParser(
-                description='Predict the class of multiple sequence alignments with one or more models.')
+            description='Predict the class of multiple sequence alignments with one or more models.',
+            formatter_class=argparse.RawTextHelpFormatter)
 
         parser.add_argument('in_type',
                 choices=['fasta'],
@@ -407,19 +412,18 @@ Use one of the following commands:
 
         parser.add_argument('input', 
                             metavar='INPUT',
-                            help='A comma separated list of paths to text files containing themselves paths to MSA files of the chosen input type. Each MSA file contains a single alignment.',
+                            help='A space separated list of paths to text files containing themselves paths to MSA files of the chosen input type.\nEach MSA file contains a single alignment.',
                             type=file_exists,
                             nargs='+',
         )
         
-                
-        
         parser.add_argument('--clades', 
-                            help='Path(s) to the clades files (.nwk files, with branch lengths) used in the converting process. CAUTION: The same ordering as in the converting process must be used!',
+                            help='Path(s) to the clades files (.nwk files, with branch lengths) used in the converting process.\nCAUTION: The same ordering as in the converting process must be used!',
                             metavar='CLADES',
                             type=file_exists,
                             nargs='+',
         )
+
         
         
         parser.add_argument('--use_codons', 
@@ -430,7 +434,7 @@ Use one of the following commands:
         
         
         parser.add_argument('--batch_size',
-                            help='Number of MSAs to evaluate per computation step. Higher batch sizes increase the speed of evaluation, though require more RAM / VRAM in the case of CPU / GPU evaluation.',
+                            help='Number of MSAs to evaluate per computation step.\nHigher batch sizes increase the speed of evaluation, though require more RAM / VRAM in the case of CPU / GPU evaluation.',
                             metavar='BATCH_SIZE',
                             type=int,
                             default=30,
@@ -445,7 +449,7 @@ Use one of the following commands:
         
         parser.add_argument('--saved_weights_basedir',
                             metavar='SAVED_WEIGHTS_BASEDIR',
-                            help='Folder in which the weights for the best performing models are stored. Defaults "./saved_weights/"',
+                            help='Folder in which the weights for the best performing models are stored.\nDefaults "./saved_weights/"',
                             type = folder_is_writable_if_exists,
         )
         
@@ -461,6 +465,22 @@ Use one of the following commands:
                            metavar='OUT_CSV',
                            help='Output file name for the *.csv file containing the predictions.',
         )
+
+        parser.add_argument('--name_translation', 
+                            help='''Path to a file that contains an optional translation table.
+The sequence names in the fasta MSA input are translated to clade ids as used in the clade .nwk files.
+In the tab-separated 2-column file, the first colum holds the seqence name, the second the taxon id.
+The first column cannot contain duplicates. A space separated list of paths is allowed, too.
+Example:
+dm       dmel
+droAna   dana
+dm3.chr1 dmel''',
+                            metavar='TRANSTBL',
+                            type=file_exists,
+                            nargs='+',
+        )
+
+
         
         # ignore the initial args specifying the command
         args = parser.parse_args(sys.argv[2:])
@@ -471,10 +491,24 @@ Use one of the following commands:
         fasta_paths = []
         for fl in args.input:
             with open(fl) as f:
-                fasta_paths = fasta_paths + f.read().splitlines()
+                fasta_paths.extend(f.read().splitlines())
 
         model_ids = collections.OrderedDict(args.model_ids) # to fix the models order as in the command-line argument
 
+        # read name->taxon_id translation tables into dictionary if specified
+        trans_dict = {}
+        for trfn in args.name_translation:
+            with open(trfn) as f:
+                for line in f.read().splitlines():
+                    a = line.split('\t')
+                    if len(a) != 2:
+                        raise Exception(f"Translation file {trfn} contains an error in line {line}. Must have 2 tab-separated fields.")
+                    (fasta_name, taxon_id) = a
+                    if fasta_name in trans_dict and trans_dict[fasta_name] != taxon_id:
+                        raise Exception(f"Translation file {trfn} contains conflicting duplicates: {fasta_name} -> {trans_dict[fasta_name]}, {taxon_id}")
+                    trans_dict[fasta_name] = taxon_id
+
+        
         # predict on the wanted files
         preds, used_fasta_paths = me.predict_on_fasta_files(trial_ids=args.model_ids,
                                           saved_weights_dir=args.saved_weights_basedir,
@@ -482,7 +516,8 @@ Use one of the following commands:
                                           clades=args.clades,
                                           fasta_paths = fasta_paths,
                                           use_codons = args.use_codons,
-                                          batch_size=args.batch_size,
+                                          batch_size = args.batch_size,
+                                          trans_dict = trans_dict
         )
         
         

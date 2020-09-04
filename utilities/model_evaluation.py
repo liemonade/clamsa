@@ -222,7 +222,8 @@ def predict_on_fasta_files(trial_ids, # OrderedDict of model ids with keys like 
                            clades,
                            fasta_paths,
                            use_codons = True,
-                           batch_size=30,
+                           batch_size = 30,
+                           trans_dict = dict()
 ):
     # calculate model properties
     entry_length = 3 if use_codons else 1
@@ -231,7 +232,7 @@ def predict_on_fasta_files(trial_ids, # OrderedDict of model ids with keys like 
     
     
     # import the fasta files and filter out empty codon aligned sequences
-    fasta_sequences = [msa_converter.parse_fasta_file(f, clades, use_codons) for f in fasta_paths]
+    fasta_sequences = [msa_converter.parse_fasta_file(f, clades, use_codons, trans_dict=trans_dict) for f in fasta_paths]
     fasta_sequences = [{'path': fasta_paths[i], 'sequence': seq[2], 'clade_id': seq[0], 'sequence_length': seq[1]} for i,seq in enumerate(fasta_sequences) if not seq is None] 
     
     

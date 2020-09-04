@@ -487,16 +487,22 @@ def import_augustus_training_file(paths, undersample_neg_by_factor = 1., alphabe
 #
 # This function is currently just written for the fasta header format
 # we generate for phylocsf.
-def parse_fasta_file(fasta_path, clades, use_codons=True, margin_width=0):
-    
+def parse_fasta_file(fasta_path, clades, use_codons=True, margin_width=0, trans_dict=dict()):
+    """
+       trans_dict   dictionary for translating names used in FASTA headers to taxon ids from the trees (clades)
+    """
     species = [leaf_order(c,use_alternatives=True) for c in clades] if clades != None else []
     
     entries = [rec for rec in SeqIO.parse(fasta_path, "fasta")]
     # parse the species names
     spec_in_file = [e.id.split('|')[0] for e in entries]
 
+    # translate species name from file to taxon ids
+    translator = lambda s : trans_dict[s] if s in trans_dict else s
+    msa_taxon_ids = list(map(translator, spec_in_file))
+  
     # compare them with the given references
-    ref_ids = [[(r,i) for r in range(len(species))  for i in range(len(species[r])) if s in species[r][i] ] for s in spec_in_file]
+    ref_ids = [[(r,i) for r in range(len(species))  for i in range(len(species[r])) if s in species[r][i] ] for s in msa_taxon_ids]
 
     # check if these are contained in exactly one reference clade
     n_refs = [len(x) for x in ref_ids]
