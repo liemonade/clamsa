@@ -247,7 +247,7 @@ def predict_on_fasta_files(trial_ids, # OrderedDict of model ids with keys like 
             continue
 
         (cid, alen, seqs) = s
-        if alen < word_len:
+        if alen < 1:
             malformed.append(i)
             malformed2.append(i)
         elif cid < 0:
@@ -261,7 +261,7 @@ def predict_on_fasta_files(trial_ids, # OrderedDict of model ids with keys like 
         print(f'The species in "{fasta_paths[i]}" are not in included in a reference clade. Ignoring it.')
     # print paths to empty too short MSAs
     for i in malformed2:
-        print(f'The MSA "{fasta_paths[i]}" has a length < {word_len}. Ignoring it.')
+        print(f'The MSA "{fasta_paths[i]}" has a length < 1 or fewer than two rows without in-frame stop. Ignoring it.')
 
     if len(wellformed_msas) == 0:
         return collections.OrderedDict({'path':[]})
