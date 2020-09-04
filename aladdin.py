@@ -13,8 +13,6 @@ import collections
 
 import utilities.msa_converter as mc
 import utilities.model_evaluation as me
-import gc
-#from utilities.training import train_models
 
 
 # Default values
@@ -498,50 +496,41 @@ dm3.chr1 dmel''',
 
         # read name->taxon_id translation tables into dictionary if specified
         trans_dict = {}
-        for trfn in args.name_translation:
-            with open(trfn) as f:
-                for line in f.read().splitlines():
-                    a = line.split('\t')
-                    if len(a) != 2:
-                        raise Exception(f"Translation file {trfn} contains an error in line {line}. Must have 2 tab-separated fields.")
-                    (fasta_name, taxon_id) = a
-                    if fasta_name in trans_dict and trans_dict[fasta_name] != taxon_id:
-                        raise Exception(f"Translation file {trfn} contains conflicting duplicates: {fasta_name} -> {trans_dict[fasta_name]}, {taxon_id}")
-                    trans_dict[fasta_name] = taxon_id
+        if not args.name_translation is None:
+            for trfn in args.name_translation:
+                with open(trfn) as f:
+                    for line in f.read().splitlines():
+                        a = line.split('\t')
+                        if len(a) != 2:
+                            raise Exception(f"Translation file {trfn} contains an error in line {line}. Must have 2 tab-separated fields.")
+                        (fasta_name, taxon_id) = a
+                        if fasta_name in trans_dict and trans_dict[fasta_name] != taxon_id:
+                            raise Exception(f"Translation file {trfn} contains conflicting duplicates: {fasta_name} -> {trans_dict[fasta_name]}, {taxon_id}")
+                        trans_dict[fasta_name] = taxon_id
 
         
-        # predict on the input files, making batches of fasta_paths
-        batch_size = 1000
-        n = len(fasta_paths)
-        first_chunk = True
 
-        for i in range(0, n, batch_size):
-            print ("Finished {} of {} alignments ({:.1f}%)".format(i, n, 100*i/n))
-            paths_chunk = fasta_paths[i : i + batch_size]
+        preds = me.predict_on_fasta_files(trial_ids=args.model_ids,
+                                          saved_weights_dir=args.saved_weights_basedir,
+                                          log_dir=args.log_basedir,
+                                          clades=args.clades,
+                                          fasta_paths = fasta_paths,
+                                          use_codons = args.use_codons,
+                                          batch_size = args.batch_size,
+                                          trans_dict = trans_dict,
+        )
 
-            preds = me.predict_on_fasta_files(trial_ids=args.model_ids,
-                                              saved_weights_dir=args.saved_weights_basedir,
-                                              log_dir=args.log_basedir,
-                                              clades=args.clades,
-                                              fasta_paths = paths_chunk,
-                                              use_codons = args.use_codons,
-                                              batch_size = args.batch_size,
-                                              trans_dict = trans_dict
-            )
+        # construct a dataframe from the predictions
+        df = pd.DataFrame.from_dict(preds)
 
-            # construct a dataframe from the predictions
-            preds.move_to_end('path', last = False) # move MSA file name to front
-            df = pd.DataFrame.from_dict(preds)
-
-            if not args.out_csv is None:
-                df.to_csv(args.out_csv, sep='\t',
-                          float_format = '%.4f', # output precision
-                          index=False,
-                          header = first_chunk,
-                          mode = 'w' if first_chunk else 'a' # first chunk deletes file, remaining append
-                ) # no row numbering
-            first_chunk = False
-            gc.collect()
+        if not args.out_csv is None:
+            df.to_csv(args.out_csv, sep='\t',
+                      float_format = '%.4f', # output precision
+                      index=False,
+                      header = True,
+                      mode = 'w' 
+            ) 
+            
 def main():
     Aladdin()
     exit(0)

@@ -223,7 +223,7 @@ def predict_on_fasta_files(trial_ids, # OrderedDict of model ids with keys like 
                            fasta_paths,
                            use_codons = True,
                            batch_size = 30,
-                           trans_dict = dict()
+                           trans_dict = None,
 ):
     # calculate model properties
     word_len = 3 # codon size or other tuples
@@ -231,40 +231,27 @@ def predict_on_fasta_files(trial_ids, # OrderedDict of model ids with keys like 
     alphabet_size = 4 ** entry_length
     num_leaves = database_reader.num_leaves(clades)
     
+    trans_dict = trans_dict if not trans_dict is None else {}
     
     # import the fasta files and filter out empty codon aligned sequences
-    fasta_sequences = [msa_converter.parse_fasta_file(f, clades, use_codons, trans_dict=trans_dict) for f in fasta_paths]
+    path_ids_without_reference_clade = set()
+    path_ids_with_empty_sequences = set()
     
-    # filter fasta files that have no valid reference clade
-    malformed = []
-    malformed1 = [] # due to id mismatch
-    malformed2 = [] # due to length
-    wellformed_msas = []
-    for i, s in enumerate(fasta_sequences):
-        if s is None:
-            malformed.append(i)
-            malformed2.append(i)
-            continue
+    def sequence_generator():
 
-        (cid, alen, seqs) = s
-        if alen < word_len:
-            malformed.append(i)
-            malformed2.append(i)
-        elif cid < 0:
-            malformed.append(i)
-            malformed1.append(i)
-        else:
-            wellformed_msas.append({'path': fasta_paths[i], 'sequence': seqs, 'clade_id': cid, 'sequence_length': alen})
+        for f in fasta_paths:
+
+            # filter fasta files that have no valid reference clade
+            cid, sl, S = msa_converter.parse_fasta_file(f, clades, trans_dict=trans_dict)
+            if cid == -1:
+                path_ids_without_reference_clade.add(f)
+                continue
+            if cid == -2:
+                path_ids_with_empty_sequences.add(f)
+                continue
+
+            yield cid, sl, S
             
-    # print those paths where no valid reference clade was found
-    for i in malformed1:
-        print(f'The species in "{fasta_paths[i]}" are not in included in a reference clade. Ignoring it.')
-    # print paths to empty too short MSAs
-    for i in malformed2:
-        print(f'The MSA "{fasta_paths[i]}" has a length < {word_len}. Ignoring it.')
-
-    if len(wellformed_msas) == 0:
-        return collections.OrderedDict({'path':[]})
     
     # load the wanted models and compile them
     models = collections.OrderedDict( (name, recover_model(trial_ids[name], clades, alphabet_size, log_dir, saved_weights_dir)) for name in trial_ids)
@@ -281,7 +268,7 @@ def predict_on_fasta_files(trial_ids, # OrderedDict of model ids with keys like 
 
     # construct a `tf.data.Dataset` from the fasta files    
     # generate a dataset for these files
-    dataset = tf.data.Dataset.from_generator(lambda: [(seq['clade_id'], seq['sequence_length'], seq['sequence']) for seq in wellformed_msas], (tf.int32, tf.int64, tf.float64))
+    dataset = tf.data.Dataset.from_generator(sequence_generator, output_types=(tf.int32, tf.int64, tf.float64))
 
     # batch and reshape sequences to match the input specification of tcmc
     #ds = database_reader.padded_batch(ds, batch_size, num_leaves, alphabet_size)
@@ -300,11 +287,20 @@ def predict_on_fasta_files(trial_ids, # OrderedDict of model ids with keys like 
 
     # predict on each model
     preds = collections.OrderedDict()
-    preds['path'] = [s['path'] for s in wellformed_msas]
     
     for n in models:        
         model = models[n]
         preds[n] = model.predict(dataset)[:,1]
         del model
         
+    wellformed_msas = [f for f in fasta_paths if f not in path_ids_with_empty_sequences and f not in path_ids_without_reference_clade]
+    preds['path'] = wellformed_msas
+    preds.move_to_end('path', last = False) # move MSA file name to front
+    
+    for p in path_ids_without_reference_clade:
+        print(f'The species in "{p}" are not in included in a reference clade. Ignoring it.')
+        
+    for p in path_ids_with_empty_sequences:
+        print(f'The MSA "{p}" is empty (after) codon-aligning it. Ignoring it.')
+    
     return preds

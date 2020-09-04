@@ -487,10 +487,11 @@ def import_augustus_training_file(paths, undersample_neg_by_factor = 1., alphabe
 #
 # This function is currently just written for the fasta header format
 # we generate for phylocsf.
-def parse_fasta_file(fasta_path, clades, use_codons=True, margin_width=0, trans_dict=dict()):
+def parse_fasta_file(fasta_path, clades, use_codons=True, margin_width=0, trans_dict=None):
     """
        trans_dict   dictionary for translating names used in FASTA headers to taxon ids from the trees (clades)
     """
+    trans_dict = {} if trans_dict is None else trans_dict
     species = [leaf_order(c,use_alternatives=True) for c in clades] if clades != None else []
     
     entries = [rec for rec in SeqIO.parse(fasta_path, "fasta")]
@@ -541,7 +542,7 @@ def parse_fasta_file(fasta_path, clades, use_codons=True, margin_width=0, trans_
     sequence_length = len(coded_sequences[1])  
     
     if sequence_length == 0:
-        return None
+        return -2, 0, None
 
     # cardinality of the alphabet that has been onehot-encoded
     s = coded_sequences.shape[-1]
