@@ -555,7 +555,7 @@ def parse_fasta_file(fasta_path, clades, use_codons=True, margin_width=0, trans_
         coded_sequences = coded_sequences[np.invert(stops)]
 
     if len(msa.sequences) < 2:
-        return None
+        return -2, 0, None
     
     sequence_length = len(coded_sequences[0])
     if sequence_length == 0:
