@@ -36,7 +36,7 @@ class MSA(object):
         self.sequences = sequences
         self._updated_sequences = True
         self._coded_sequences = None
-        self.in_frame_stop = False
+        self.in_frame_stops = []
 
 
     @property
@@ -77,13 +77,13 @@ class MSA(object):
             tbl = str.maketrans(alphabet, rev_alphabet)
             sequences = [s[::-1].translate(tbl) for s in sequences]
 
-        cali, self.in_frame_stop = tuple_alignment(sequences, gap_symbols, frame = self.frame, tuple_length = c)
+        cali, self.in_frame_stops = tuple_alignment(sequences, gap_symbols, frame = self.frame, tuple_length = c)
         return cali
 
     @property
     def coded_codon_aligned_sequences(self, alphabet='acgt', gap_symbols = '-'):
         ca = self.codon_aligned_sequences
-        return ote.OnehotTupleEncoder.encode(ca,tuple_length=3, use_bucket_alphabet=False)
+        return ote.OnehotTupleEncoder.encode(ca, tuple_length=3, use_bucket_alphabet=False)
 
     @property
     def sequences(self):
@@ -98,6 +98,16 @@ class MSA(object):
             if use_codons:
                 length = int(length / 3) # may differ from the number of codon columns
         return length
+
+    def delete_rows(self, which):
+        assert len(which) == len(self.sequences), "Row number mismatch. Alignment {} is expected to have {} rows".format(self, len(which))
+        for i in reversed(range(len(which))):
+            if which[i]:
+                del self.sequences[i]
+                del self.spec_ids[i]
+                if self.offsets:
+                    del self.offsets[i]
+        self._updated_sequences = True
 
     @sequences.setter
     def sequences(self, value):
@@ -190,14 +200,14 @@ def tuple_alignment(sequences, gap_symbols='-', frame = 0, tuple_length = 3):
     if stops_in_lastcol:
         ta_matrix = ta_matrix[:, 0:-1]
         
-    # check if there is an in-frame stop codon somewhere
-    stops_anywhere = False
-    for i in range(ta_matrix.shape[1]):
-        stops_anywhere = stops_anywhere or bool(set(ta_matrix[:,i]) & stop_codons)
+    # check which rows contain an in-frame stop codon elsewhere
+    stops = []
+    for row in ta_matrix:
+        stops.append(bool(set(row) & stop_codons))
 
     # join the rows to get a list of tuple alignment sequences
     ta = [''.join(row) for row in ta_matrix]
-    return ta, stops_anywhere
+    return ta, stops
 
 
 
@@ -487,7 +497,7 @@ def import_augustus_training_file(paths, undersample_neg_by_factor = 1., alphabe
 #
 # This function is currently just written for the fasta header format
 # we generate for phylocsf.
-def parse_fasta_file(fasta_path, clades, use_codons=True, margin_width=0, trans_dict=None):
+def parse_fasta_file(fasta_path, clades, use_codons=True, margin_width=0, trans_dict=None, remove_stop_rows=True):
     """
        trans_dict   dictionary for translating names used in FASTA headers to taxon ids from the trees (clades)
     """
@@ -535,12 +545,19 @@ def parse_fasta_file(fasta_path, clades, use_codons=True, margin_width=0, trans_
         offsets = [],
         sequences = sequences
     )
-    # Use the correct onehot encded sequences
+    # Use the correct onehot encoded sequences
     coded_sequences = msa.coded_codon_aligned_sequences if use_codons else msa.coded_sequences
+
+    # remove all rows with an in-frame stop codon (except last col)
+    stops = msa.in_frame_stops
+    if stops:
+        msa.delete_rows(stops)
+        coded_sequences = coded_sequences[np.invert(stops)]
+
+    if len(msa.sequences) < 2:
+        return None
     
-    # Infer the length of the sequences
-    sequence_length = len(coded_sequences[1])  
-    
+    sequence_length = len(coded_sequences[0])
     if sequence_length == 0:
         return -2, 0, None
 
@@ -816,7 +833,7 @@ def export_nexus(msas, species, nex_fname, n, use_codons):
         if (msa.model == 1):
             num_positives += 1
             msa.codon_aligned_sequences
-            if msa.in_frame_stop:
+            if msa.in_frame_stops: # in at least one row
                 num_in_frame_stops += 1
             else:
                 positiveMSAs.append(msa)
