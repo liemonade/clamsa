@@ -13,6 +13,7 @@ import collections
 
 import utilities.msa_converter as mc
 import utilities.model_evaluation as me
+import gc
 #from utilities.training import train_models
 
 
@@ -469,7 +470,7 @@ Use one of the following commands:
         parser.add_argument('--name_translation', 
                             help='''Path to a file that contains an optional translation table.
 The sequence names in the fasta MSA input are translated to clade ids as used in the clade .nwk files.
-In the tab-separated 2-column file, the first colum holds the seqence name, the second the taxon id.
+In the tab-separated 2-column file, the first column holds the seqence name, the second the taxon id.
 The first column cannot contain duplicates. A space separated list of paths is allowed, too.
 Example:
 dm       dmel
@@ -509,29 +510,38 @@ dm3.chr1 dmel''',
                     trans_dict[fasta_name] = taxon_id
 
         
-        # predict on the wanted files
-        preds = me.predict_on_fasta_files(trial_ids=args.model_ids,
-                                          saved_weights_dir=args.saved_weights_basedir,
-                                          log_dir=args.log_basedir,
-                                          clades=args.clades,
-                                          fasta_paths = fasta_paths,
-                                          use_codons = args.use_codons,
-                                          batch_size = args.batch_size,
-                                          trans_dict = trans_dict
-        )
-        
-        
-        # construct a dataframe from the predictions
-        preds.move_to_end('path', last = False) # move MSA file name to front
-        df = pd.DataFrame.from_dict(preds)
+        # predict on the input files, making batches of fasta_paths
+        batch_size = 1000
+        n = len(fasta_paths)
+        first_chunk = True
 
-        if not args.out_csv is None:
-            df.to_csv(args.out_csv, sep='\t',
-                      float_format = '%.4f', # output precision
-                      index=False) # no row numbering
-        
-    
-    
+        for i in range(0, n, batch_size):
+            print ("Finished {} of {} alignments ({:.1f}%)".format(i, n, 100*i/n))
+            paths_chunk = fasta_paths[i : i + batch_size]
+
+            preds = me.predict_on_fasta_files(trial_ids=args.model_ids,
+                                              saved_weights_dir=args.saved_weights_basedir,
+                                              log_dir=args.log_basedir,
+                                              clades=args.clades,
+                                              fasta_paths = paths_chunk,
+                                              use_codons = args.use_codons,
+                                              batch_size = args.batch_size,
+                                              trans_dict = trans_dict
+            )
+
+            # construct a dataframe from the predictions
+            preds.move_to_end('path', last = False) # move MSA file name to front
+            df = pd.DataFrame.from_dict(preds)
+
+            if not args.out_csv is None:
+                df.to_csv(args.out_csv, sep='\t',
+                          float_format = '%.4f', # output precision
+                          index=False,
+                          header = first_chunk,
+                          mode = 'w' if first_chunk else 'a' # first chunk deletes file, remaining append
+                ) # no row numbering
+            first_chunk = False
+            gc.collect()
 def main():
     Aladdin()
     exit(0)

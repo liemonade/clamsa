@@ -226,7 +226,8 @@ def predict_on_fasta_files(trial_ids, # OrderedDict of model ids with keys like 
                            trans_dict = dict()
 ):
     # calculate model properties
-    entry_length = 3 if use_codons else 1
+    word_len = 3 # codon size or other tuples
+    entry_length = word_len if use_codons else 1
     alphabet_size = 4 ** entry_length
     num_leaves = database_reader.num_leaves(clades)
     
@@ -235,23 +236,36 @@ def predict_on_fasta_files(trial_ids, # OrderedDict of model ids with keys like 
     fasta_sequences = [msa_converter.parse_fasta_file(f, clades, use_codons, trans_dict=trans_dict) for f in fasta_paths]
     
     # filter fasta files that have no valid reference clade
-    malformed_fastas = [i for i,(cid,_,_) in enumerate(fasta_sequences) if cid < 0]
-    fasta_sequences = [s for i,s in enumerate(fasta_sequences) if i not in malformed_fastas]
-    
-    
-    # Print those paths where no valid reference clade was found
-    for i in malformed_fastas:
-        print(f'The species in "{fasta_paths[i]}" are not in included in a reference clade. Ignoring this alignment.')
-        
-    fasta_paths = [p for i,p in enumerate(fasta_paths) if i not in malformed_fastas]
-    
-    fasta_sequences = [{'path': fasta_paths[i], 'sequence': seq[2], 'clade_id': seq[0], 'sequence_length': seq[1]} for i,seq in enumerate(fasta_sequences) if not seq is None] 
-    
-    
-    if len(fasta_sequences) == 0:
+    malformed = []
+    malformed1 = [] # due to id mismatch
+    malformed2 = [] # due to length
+    wellformed_msas = []
+    for i, s in enumerate(fasta_sequences):
+        if s is None:
+            malformed.append(i)
+            malformed2.append(i)
+            continue
+
+        (cid, alen, seqs) = s
+        if alen < word_len:
+            malformed.append(i)
+            malformed2.append(i)
+        elif cid < 0:
+            malformed.append(i)
+            malformed1.append(i)
+        else:
+            wellformed_msas.append({'path': fasta_paths[i], 'sequence': seqs, 'clade_id': cid, 'sequence_length': alen})
+            
+    # print those paths where no valid reference clade was found
+    for i in malformed1:
+        print(f'The species in "{fasta_paths[i]}" are not in included in a reference clade. Ignoring it.')
+    # print paths to empty too short MSAs
+    for i in malformed2:
+        print(f'The MSA "{fasta_paths[i]}" has a length < {word_len}. Ignoring it.')
+
+    if len(wellformed_msas) == 0:
         return collections.OrderedDict({'path':[]})
     
-
     # load the wanted models and compile them
     models = collections.OrderedDict( (name, recover_model(trial_ids[name], clades, alphabet_size, log_dir, saved_weights_dir)) for name in trial_ids)
     accuracy_metric = 'accuracy'
@@ -260,17 +274,14 @@ def predict_on_fasta_files(trial_ids, # OrderedDict of model ids with keys like 
     optimizer = tf.keras.optimizers.Adam(0.0005)
 
     for n in models:
-
         models[n].compile(optimizer = optimizer,
                           loss = loss,
-                          metrics = [accuracy_metric, auroc_metric,],
-        )
-        
-        
-        
+                          metrics = [accuracy_metric, auroc_metric])
+
+
     # construct a `tf.data.Dataset` from the fasta files    
     # generate a dataset for these files
-    dataset = tf.data.Dataset.from_generator(lambda: [(seq['clade_id'], seq['sequence_length'], seq['sequence']) for seq in fasta_sequences], (tf.int32, tf.int64, tf.float64))
+    dataset = tf.data.Dataset.from_generator(lambda: [(seq['clade_id'], seq['sequence_length'], seq['sequence']) for seq in wellformed_msas], (tf.int32, tf.int64, tf.float64))
 
     # batch and reshape sequences to match the input specification of tcmc
     #ds = database_reader.padded_batch(ds, batch_size, num_leaves, alphabet_size)
@@ -289,10 +300,11 @@ def predict_on_fasta_files(trial_ids, # OrderedDict of model ids with keys like 
 
     # predict on each model
     preds = collections.OrderedDict()
-    preds['path'] = [s['path'] for s in fasta_sequences]
+    preds['path'] = [s['path'] for s in wellformed_msas]
     
     for n in models:        
         model = models[n]
         preds[n] = model.predict(dataset)[:,1]
+        del model
         
     return preds

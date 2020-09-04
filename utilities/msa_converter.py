@@ -560,7 +560,7 @@ def parse_fasta_file(fasta_path, clades, use_codons=True, margin_width=0, trans_
     # namely the columns of the MSA are the examples and should therefore
     # be the first axis
     S = np.transpose(S, (1,0,2))
-    
+
     return clade_id, sequence_length, S
 
 
