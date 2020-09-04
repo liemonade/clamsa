@@ -476,7 +476,7 @@ Use one of the following commands:
         model_ids = collections.OrderedDict(args.model_ids) # to fix the models order as in the command-line argument
 
         # predict on the wanted files
-        preds, used_fasta_paths = me.predict_on_fasta_files(trial_ids=args.model_ids,
+        preds = me.predict_on_fasta_files(trial_ids=args.model_ids,
                                           saved_weights_dir=args.saved_weights_basedir,
                                           log_dir=args.log_basedir,
                                           clades=args.clades,
@@ -487,7 +487,6 @@ Use one of the following commands:
         
         
         # construct a dataframe from the predictions
-        preds['path'] = used_fasta_paths
         preds.move_to_end('path', last = False) # move MSA file name to front
         df = pd.DataFrame.from_dict(preds)
 

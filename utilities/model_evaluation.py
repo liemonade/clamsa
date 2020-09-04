@@ -232,8 +232,23 @@ def predict_on_fasta_files(trial_ids, # OrderedDict of model ids with keys like 
     
     # import the fasta files and filter out empty codon aligned sequences
     fasta_sequences = [msa_converter.parse_fasta_file(f, clades, use_codons) for f in fasta_paths]
+    
+    # filter fasta files that have no valid reference clade
+    malformed_fastas = [i for i,(cid,_,_) in enumerate(fasta_sequences) if cid < 0]
+    fasta_sequences = [s for i,s in enumerate(fasta_sequences) if i not in malformed_fastas]
+    
+    
+    # Print those paths where no valid reference clade was found
+    for i in malformed_fastas:
+        print(f'The species in "{fasta_paths[i]}" are not in included in a reference clade.')
+        
+    fasta_paths = [p for i,p in enumerate(fasta_paths) if i not in malformed_fastas]
+    
     fasta_sequences = [{'path': fasta_paths[i], 'sequence': seq[2], 'clade_id': seq[0], 'sequence_length': seq[1]} for i,seq in enumerate(fasta_sequences) if not seq is None] 
     
+    
+    if len(fasta_sequences) == 0:
+        return collections.OrderedDict({'path':[]})
     
 
     # load the wanted models and compile them
@@ -273,9 +288,10 @@ def predict_on_fasta_files(trial_ids, # OrderedDict of model ids with keys like 
 
     # predict on each model
     preds = collections.OrderedDict()
+    preds['path'] = [s['path'] for s in fasta_sequences]
     
     for n in models:        
         model = models[n]
         preds[n] = model.predict(dataset)[:,1]
         
-    return preds, [s['path'] for s in fasta_sequences]
+    return preds
