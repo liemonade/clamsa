@@ -1192,8 +1192,10 @@ def write_phylocsf(dataset, out_dir, basename, species,
                     fa.write((" +" if msa.is_on_plus_strand else " -") + " phase="  + str(frame))
             fa.write("\n")
             seq = msa.sequences[sids[j]]
-            if not msa.is_on_plus_strand:
-                seq = seq[::-1] # reverse sequences on minus strand
+            if not msa.is_on_plus_strand: # on minus strand
+                 tbl = str.maketrans(alphabet, alphabet[::-1])
+                 seq = seq[::-1].translate(tbl) # reverse and complement
+                                                                 
             start_offset = frame
             end_offset = get_end_offset(start_offset, len(seq))
             

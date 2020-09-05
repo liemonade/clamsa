@@ -9,7 +9,7 @@ import numbers
 import newick
 from pathlib import Path
 import pandas as pd
-import collections
+from collections import OrderedDict
 
 import utilities.msa_converter as mc
 import utilities.model_evaluation as me
