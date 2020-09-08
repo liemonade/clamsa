@@ -146,22 +146,28 @@ Use one of the following commands:
                 default = 3)
 
         parser.add_argument('--splits', 
-                help='The imported MSA database will be splitted into the specified pieces. SPLITS_JSON is assumed to be a a dictionairy in JSON notation. The keys are used in conjunction with the base name to specify an output path. The values are assumed to be either positive integers or floating point numbers between zero and one. In the former case up to this number of examples will be stored in the respective split. In the latter case the number will be treated as a percentage number and the respective fraction of the data will be stored in the split. A value of -1 specifies that the remaining entries are distributed among the splits of negative size. All (filtered) examples are used in this case.',
-                metavar='SPLITS_JSON',
-                type=is_valid_split)
+                help = 'The imported MSA database will be splitted into the specified pieces. SPLITS_JSON is assumed to be a a dictionairy in JSON notation. The keys are used in conjunction with the base name to specify an output path. The values are assumed to be either positive integers or floating point numbers between zero and one. In the former case up to this number of examples will be stored in the respective split. In the latter case the number will be treated as a percentage number and the respective fraction of the data will be stored in the split. A value of -1 specifies that the remaining entries are distributed among the splits of negative size. All (filtered) examples are used in this case.',
+                metavar = 'SPLITS_JSON',
+                type = is_valid_split)
 
         # TODO: implement newick check
         parser.add_argument('--clades', 
-                help='Provide a paths CLADES to clade file(s) in Newick (.nwk) format. The species found in the input file(s) are assumed to be contained in the leave set of exactly one these clades. If so, the sequences will be aligned in the particular order specified in the clade. The names of the species in the clade(s) and in the input file(s) need to coincide.',
-                metavar='CLADES',
-                type=file_exists,
-                nargs='+')
+                help = 'Provide a paths CLADES to clade file(s) in Newick (.nwk) format. The species found in the input file(s) are assumed to be contained in the leave set of exactly one these clades. If so, the sequences will be aligned in the particular order specified in the clade. The names of the species in the clade(s) and in the input file(s) need to coincide.',
+                metavar = 'CLADES',
+                type = file_exists,
+                nargs = '+')
 
         parser.add_argument('--margin_width',
-                help='Whether the input MSAs are padded by a MARGIN_WIDTH necleotides on both sides.',
-                metavar='MARGIN_WIDTH',
-                type=int,
-                default=0)
+                help = 'Whether the input MSAs are padded by a MARGIN_WIDTH necleotides on both sides.',
+                metavar = 'MARGIN_WIDTH',
+                type = int,
+                default = 0)        
+        
+        parser.add_argument('--entry_length', 
+                help = 'The MSAs will be exported as n-tupel-aligned sequences instead of nucleotide alignments where n is the ENTRY_LENGTH. This flag works only with the INPUT_TYPE fasta and not in combination with the --use_codons flag!',
+                metavar = 'ENTRY_LENGTH',
+                type = int,
+                default = 1)
 
         parser.add_argument('--ratio_neg_to_pos',
                 help = 'Undersample the negative samples (Model ID 0) or positive examples (Model ID 1) of the input file(s) to achieve a ratio of RATIO negative per positive example.',
@@ -171,7 +177,12 @@ Use one of the following commands:
         parser.add_argument('--use_codons', 
                 help = 'The MSAs will be exported as codon-aligned codon sequences instead of nucleotide alignments.',
                 action = 'store_true')
-
+                
+        parser.add_argument('--use_amino_acids', 
+                help = 'Use amino acids instead of nucleotides as alphabet.',
+                action = 'store_true',
+        )
+                
         parser.add_argument('--use_compression',
                 help = 'Whether the output files should be compressed using GZIP or not. By default compression is used.',
                 action = 'store_false')
@@ -201,7 +212,9 @@ Use one of the following commands:
         if args.in_type == 'fasta':
             T, species = mc.import_fasta_training_file(args.input_files,
                                                        reference_clades = args.clades,
-                                                       margin_width = args.margin_width)
+                                                       margin_width = args.margin_width,
+                                                       entry_length = args.entry_length,
+                                                       use_amino_acids = args.use_amino_acids)
 
         if args.in_type == 'augustus':
             T, species = mc.import_augustus_training_file(args.input_files,
@@ -293,11 +306,22 @@ Use one of the following commands:
                             nargs='+',
         )
         
+        parser.add_argument('--entry_length', 
+                            help = 'The MSAs will be exported as n-tupel-aligned sequences instead of nucleotide alignments where n is the entry_length. If n = 3, you can use the flag --use_codons instead.',
+                            metavar = 'ENTRY_LENGTH',
+                            type = int,
+                            default = 1)
+        
         
         parser.add_argument('--split_specifications', 
                             help='TODO: Write help',
                             metavar='SPLIT_SPECIFICATIONS',
                             type=is_valid_json,
+        )
+        
+        parser.add_argument('--use_amino_acids', 
+                            help = 'Use amino acids instead of nucleotides as alphabet.',
+                            action = 'store_true',
         )
 
         parser.add_argument('--used_codons', 
@@ -382,6 +406,8 @@ Use one of the following commands:
                      args.clades,
                      args.merge_behaviour,
                      args.split_specifications,
+                     args.entry_length,
+                     args.use_amino_acids,
                      args.used_codons,
                      args.model_hyperparameters,
                      args.model_training_callbacks,

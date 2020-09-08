@@ -39,6 +39,8 @@ def train_models(input_dir,
               'val': {'name': 'val', 'wanted_models': [0, 1], 'interweave_models': True, 'repeat_models': [False, False]},
               'test': {'name': 'test', 'wanted_models': [0, 1], 'interweave_models': True, 'repeat_models': [False, False]},
           },
+          entry_length = 1,
+          use_amino_acids = False,
           used_codons = True,
           model_hyperparameters = {
               "tcmc_rnn": {
@@ -72,8 +74,8 @@ def train_models(input_dir,
     
     # calculate some features from the input
     num_leaves = database_reader.num_leaves(clades)
-    entry_length = 3 if used_codons else 1
-    alphabet_size = 4 ** entry_length
+    entry_length = 3 if used_codons else entry_length
+    alphabet_size = 4 ** entry_length if not use_amino_acids else 20 ** entry_length
 
     # evaluate the split specifications
     splits = {'train': None, 'val': None, 'test': None}
