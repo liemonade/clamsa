@@ -359,7 +359,6 @@ Use one of the following commands:
         )
         
         
-
         parser.add_argument('--epochs',
                             help='Number of epochs per hyperparameter configuration.',
                             metavar='BATCH_SIZE',
@@ -386,8 +385,7 @@ Use one of the following commands:
                             type = folder_is_writable_if_exists,
         )
         
-        
-        
+                
         parser.add_argument('--verbose', 
                             help = 'Whether training informtion should be printed to console. All ',
                             action = 'store_true',
@@ -449,7 +447,16 @@ Use one of the following commands:
                             nargs='+',
         )
 
-        
+        parser.add_argument('--entry_length', 
+                            help = 'The MSAs will be exported as n-tupel-aligned sequences instead of nucleotide alignments where n is the entry_length. If n = 3, you can use the flag --use_codons instead.',
+                            metavar = 'ENTRY_LENGTH',
+                            type = int,
+                            default = 1)
+                
+        parser.add_argument('--use_amino_acids', 
+                            help = 'Use amino acids instead of nucleotides as alphabet.',
+                            action = 'store_true',
+        )
         
         parser.add_argument('--use_codons', 
                             help = 'The MSAs will be exported as codon-aligned codon sequences instead of nucleotide alignments.',
@@ -541,7 +548,9 @@ dm3.chr1 dmel''',
                                           log_dir=args.log_basedir,
                                           clades=args.clades,
                                           fasta_paths = fasta_paths,
+                                          use_amino_acids = args.use_amino_acids,
                                           use_codons = args.use_codons,
+                                          entry_length = args.entry_length,
                                           batch_size = args.batch_size,
                                           trans_dict = trans_dict,
         )
