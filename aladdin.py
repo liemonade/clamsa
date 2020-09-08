@@ -518,7 +518,7 @@ dm3.chr1 dmel''',
             with open(fl) as f:
                 fasta_paths.extend(f.read().splitlines())
 
-        model_ids = collections.OrderedDict(args.model_ids) # to fix the models order as in the command-line argument
+        model_ids = OrderedDict(args.model_ids) # to fix the models order as in the command-line argument
 
         # read name->taxon_id translation tables into dictionary if specified
         trans_dict = {}
@@ -552,7 +552,7 @@ dm3.chr1 dmel''',
         if not args.out_csv is None:
             df.to_csv(args.out_csv, sep='\t',
                       float_format = '%.4f', # output precision
-                      index=False,
+                      index = False,
                       header = True,
                       mode = 'w' 
             ) 

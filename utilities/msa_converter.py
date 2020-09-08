@@ -333,7 +333,7 @@ def import_fasta_training_file(paths, undersample_neg_by_factor = 1., reference_
         else:
             sequences = [str(rec.seq) for rec in entries]
         sequences = sequences[margin_width:-margin_width] if margin_width > 0 else sequences
-                
+
         # decide whether the upcoming entry should be skipped
         skip_entry = model == 0 and random.random() > 1. / undersample_neg_by_factor
         if skip_entry:
@@ -554,9 +554,11 @@ def parse_fasta_file(fasta_path, clades, use_codons=True, margin_width=0, trans_
 
     # remove all rows with an in-frame stop codon (except last col)
     stops = msa.in_frame_stops
+    # print (msa, stops)
     if stops:
         msa.delete_rows(stops)
         coded_sequences = coded_sequences[np.invert(stops)]
+    # print ("after stop deletion:", msa, "\ncoded_sequences=", coded_sequences)
 
     if len(msa.sequences) < 2:
         return -2, 0, None
@@ -1124,6 +1126,7 @@ def get_end_offset(start_offset, seqlen):
     """ 
        get the largest position where a complete codon could start,
        end_offset - start_offset is a multiple of 3 so incomplete codons are truncated
+       TODO: this can fail if the alignment boundary were to contains gaps
     """
     end_offset = seqlen - 3 # -3 so, a full codon could end right at end_offset
     end_offset = start_offset + math.floor((end_offset - start_offset) / 3) * 3
@@ -1134,7 +1137,8 @@ def write_phylocsf(dataset, out_dir, basename, species,
                    splits = None, split_models = None, split_bins = None, 
                    n_wanted = None, use_codons = False):
     """
-       Each MSA is written into a single text file in a format required by PhyloCSF.
+       Each MSA is written into a single text file in a FASTA format required by PhyloCSF
+       and accepted by aladdin predict.
     """
     print ("Writing to PhyloCSF flat files...")
     classnames = ["controls", "exons"]
@@ -1149,7 +1153,7 @@ def write_phylocsf(dataset, out_dir, basename, species,
     
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
-            
+
     for i in tqdm(range(n_wanted), desc = "Writing PhyloCSF dataset", unit = " MSA"):
         s = np.digitize(i, split_bins)
         split_dir = os.path.join(out_dir, basename, splitnames[s])
@@ -1157,7 +1161,7 @@ def write_phylocsf(dataset, out_dir, basename, species,
             os.makedirs(split_dir)
         
         msa = dataset[i]
-         # get the id of the used clade and leaves inside this clade
+        # get the id of the used clade and leaves inside this clade
         clade_id = msa.spec_ids[0][0]
         phyloCSFspecies = species[clade_id] # correct?  
     
@@ -1189,30 +1193,34 @@ def write_phylocsf(dataset, out_dir, basename, species,
             (_, k) = msa.spec_ids[k]
             fa.write(">" + phyloCSFspecies[k])
             if j == 0:
-                fa.write("|y=" + str(y) + "|f=" + str(frame))
+                fa.write("|y=" + str(y) + "|phase=0|") # frame is corrected to 0, strand to +
                 if msa.chromosome_id is not None \
                    and msa.start_index is not None \
                    and msa.end_index is not None:
-                    fa.write(" " + msa.chromosome_id + ":" + str(msa.start_index) + "-" + str(msa.end_index))
+                    fa.write(msa.chromosome_id + ":" + str(msa.start_index) + "-" + str(msa.end_index))
+                    fa.write("||originally:f=" + str(frame) + ",strand=" + ("+" if msa.is_on_plus_strand else "-"))
                 if phyloDEBUG:     
                     fa.write((" +" if msa.is_on_plus_strand else " -") + " phase="  + str(frame))
             fa.write("\n")
             seq = msa.sequences[sids[j]]
             if not msa.is_on_plus_strand: # on minus strand
-                 tbl = str.maketrans(alphabet, alphabet[::-1])
-                 seq = seq[::-1].translate(tbl) # reverse and complement
+                alphabet = "acgt"
+                tbl = str.maketrans(alphabet, alphabet[::-1])
+                seq = seq[::-1].translate(tbl) # reverse and complement
                                                                  
             start_offset = frame
-            end_offset = get_end_offset(start_offset, len(seq))
-            
+            # this would need proper treatment of gaps
+            # end_offset = get_end_offset(start_offset, len(seq))
+            # rather let the remainder of a codon dangle
+
             if phyloDEBUG:
                 fa.write(seq[0 : margin_width] + " " +
                       seq[margin_width: start_offset] + " ")
             
-            fa.write(seq[start_offset : end_offset + 3])
+            fa.write(seq[start_offset : ]) # end was: end_offset + 3
             if phyloDEBUG:
-                  fa.write(" " + seq[end_offset + 3 : len(seq)]
-                      + " " + seq[len(seq):])
+                fa.write("" # +" " + seq[end_offset + 3 : len(seq)]
+                         + " " + seq[len(seq):])
             fa.write("\n")
         n_written[s][y] += 1
         fa.close()
