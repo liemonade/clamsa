@@ -251,7 +251,7 @@ def predict_on_fasta_files(trial_ids, # OrderedDict of model ids with keys like 
                 continue
 
             yield cid, sl, S
-            
+
     
     # load the wanted models and compile them
     models = collections.OrderedDict( (name, recover_model(trial_ids[name], clades, alphabet_size, log_dir, saved_weights_dir)) for name in trial_ids)
@@ -272,6 +272,8 @@ def predict_on_fasta_files(trial_ids, # OrderedDict of model ids with keys like 
 
     # batch and reshape sequences to match the input specification of tcmc
     #ds = database_reader.padded_batch(ds, batch_size, num_leaves, alphabet_size)
+
+
     padded_shapes = ([], [], [None, max(num_leaves), alphabet_size])
     dataset = dataset.padded_batch(batch_size, 
                                    padded_shapes = padded_shapes, 
@@ -280,6 +282,7 @@ def predict_on_fasta_files(trial_ids, # OrderedDict of model ids with keys like 
                                        tf.constant(0, tf.int64), 
                                        tf.constant(1.0, tf.float64)
                                    ))
+
     dataset = dataset.prefetch(tf.data.experimental.AUTOTUNE)
     dataset = dataset.map(database_reader.concat_sequences, num_parallel_calls = 4)
 
@@ -287,12 +290,15 @@ def predict_on_fasta_files(trial_ids, # OrderedDict of model ids with keys like 
 
     # predict on each model
     preds = collections.OrderedDict()
-    
-    for n in models:        
+
+    for n in models:
         model = models[n]
-        preds[n] = model.predict(dataset)[:,1]
+        try:
+            preds[n] = model.predict(dataset)[:,1]
+        except UnboundLocalError:
+            pass # happens in tf 2.3 when there is no valid MSA
         del model
-        
+
     wellformed_msas = [f for f in fasta_paths if f not in path_ids_with_empty_sequences and f not in path_ids_without_reference_clade]
     preds['path'] = wellformed_msas
     preds.move_to_end('path', last = False) # move MSA file name to front
