@@ -223,14 +223,13 @@ def predict_on_fasta_files(trial_ids, # OrderedDict of model ids with keys like 
                            fasta_paths,
                            use_amino_acids = False,
                            use_codons = True,
-                           entry_length = 1,
+                           tupel_length = 1,
                            batch_size = 30,
                            trans_dict = None,
 ):
     # calculate model properties
-    word_len = 3 # codon size or other tuples
-    entry_length = word_len if use_codons else entry_length
-    alphabet_size = 4 ** entry_length if not use_amino_acids else 20 ** entry_length
+    tupel_length = 3 if use_codons else tupel_length
+    alphabet_size = 4 ** tupel_length if not use_amino_acids else 20 ** tupel_length
     num_leaves = database_reader.num_leaves(clades)
     
     trans_dict = trans_dict if not trans_dict is None else {}

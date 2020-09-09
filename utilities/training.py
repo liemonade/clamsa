@@ -39,7 +39,7 @@ def train_models(input_dir,
               'val': {'name': 'val', 'wanted_models': [0, 1], 'interweave_models': True, 'repeat_models': [False, False]},
               'test': {'name': 'test', 'wanted_models': [0, 1], 'interweave_models': True, 'repeat_models': [False, False]},
           },
-          entry_length = 1,
+          tupel_length = 1,
           use_amino_acids = False,
           used_codons = True,
           model_hyperparameters = {
@@ -74,8 +74,8 @@ def train_models(input_dir,
     
     # calculate some features from the input
     num_leaves = database_reader.num_leaves(clades)
-    entry_length = 3 if used_codons else entry_length
-    alphabet_size = 4 ** entry_length if not use_amino_acids else 20 ** entry_length
+    tupel_length = 3 if used_codons else tupel_length
+    alphabet_size = 4 ** tupel_length if not use_amino_acids else 20 ** tupel_length
 
     # evaluate the split specifications
     splits = {'train': None, 'val': None, 'test': None}
@@ -163,7 +163,7 @@ def train_models(input_dir,
             S = tf.transpose(sequences, perm = [1, 0, 2])
 
             # decode the sequence and print some columns
-            dec = ote.OnehotTupleEncoder.decode_tfrecord_entry(S.numpy(), tuple_length = entry_length)
+            dec = ote.OnehotTupleEncoder.decode_tfrecord_entry(S.numpy(), tuple_length = tupel_length)
             print(f'first (up to) 8 alignment columns of decoded reshaped sequence: \n{dec[:,:8]}')
 
 

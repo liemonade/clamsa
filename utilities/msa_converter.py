@@ -24,7 +24,7 @@ stop_codons = {"taa", "tag", "tga"}
 
 class MSA(object):
     def __init__(self, model = None, chromosome_id = None, start_index = None, end_index = None,
-                 is_on_plus_strand = False, frame = 0, spec_ids = [], offsets = [], sequences = [], use_amino_acids = False, entry_length = 1):
+                 is_on_plus_strand = False, frame = 0, spec_ids = [], offsets = [], sequences = [], use_amino_acids = False, tupel_length = 1):
         self.model = model # label, class, e.g. y=1 for coding, y=0 for non-coding
         self.chromosome_id = chromosome_id
         self.start_index = start_index # chromosomal position
@@ -38,7 +38,7 @@ class MSA(object):
         self._coded_sequences = None
         self.in_frame_stops = []
         self.use_amino_acids = use_amino_acids
-        self.entry_length = entry_length
+        self.tupel_length = tupel_length
 
     @property
     def coded_sequences(self, alphabet = "acgt"):
@@ -72,7 +72,7 @@ class MSA(object):
         if self.use_amino_acids:
             alphabet = "ARNDBCEQZGHILKMFPSTWYV"
         # size of a codon in characters
-        c = 3 if self.entry_length == 1 else self.entry_length 
+        c = 3 if self.tupel_length == 1 else self.tupel_length 
         
         # the list of sequences that should be codon aligned
         sequences = self.sequences
@@ -91,7 +91,7 @@ class MSA(object):
         if self.use_amino_acids:
             alphabet = "ARNDBCEQZGHILKMFPSTWYV"
         ca = self.codon_aligned_sequences
-        c = 3 if self.entry_length == 1 else self.entry_length 
+        c = 3 if self.tupel_length == 1 else self.tupel_length 
         return ote.OnehotTupleEncoder.encode(ca, alphabet = alphabet, tuple_length = c, use_bucket_alphabet = False)
 
     @property
@@ -106,8 +106,8 @@ class MSA(object):
             length = len(self._sequences[0])
             if use_codons:
                 length = int(length / 3) # may differ from the number of codon columns
-            if not use_codons and self.entry_length != 1:
-                length = int(length / self.entry_length) 
+            if not use_codons and self.tupel_length != 1:
+                length = int(length / self.tupel_length) 
         return length
 
     def delete_rows(self, which):
@@ -263,7 +263,7 @@ def leaf_order(path, use_alternatives=False):
             
         return matches
     
-def import_fasta_training_file(paths, undersample_neg_by_factor = 1., reference_clades = None, margin_width = 0, entry_length = 1, use_amino_acids = False):
+def import_fasta_training_file(paths, undersample_neg_by_factor = 1., reference_clades = None, margin_width = 0, tupel_length = 1, use_amino_acids = False):
     """ Imports the training files in fasta format.
     Args:
         paths (List[str]): Location of the file(s) 
@@ -271,7 +271,7 @@ def import_fasta_training_file(paths, undersample_neg_by_factor = 1., reference_
                                            set to 1.0 to use all negative examples
         reference_clades (newick.Node): Root of a reference clade. The given order of species in this tree will be used in the input file(s). 
         margin_width (int): Width of flanking region around sequences
-        entry_length (int): Length of an entry of the alphabet. e.g. 3 if you use codons or 1 if you use nucleotides as alphabet
+        tupel_length (int): Length of an entry of the alphabet. e.g. 3 if you use codons or 1 if you use nucleotides as alphabet
         used_amino_acids (bool): True if you want to use amino acids instead of nucleotides as alphabet.
     
     Example for input fasta file:
@@ -350,7 +350,7 @@ def import_fasta_training_file(paths, undersample_neg_by_factor = 1., reference_
                   offsets = [],
                   sequences = sequences,
                   use_amino_acids = use_amino_acids,
-                  entry_length = entry_length
+                  tupel_length = tupel_length
                  )        
         training_data.append(msa)
 
@@ -733,8 +733,8 @@ def subsample_lengths(msas, use_codons, max_sequence_length = 14999, min_sequenc
         length = msa.alilen(use_codons)
         if use_codons:
             length = int(length / 3)
-        if not use_codons and msa.entry_length != 1:
-            length = int(length / msa.entry_length)
+        if not use_codons and msa.tupel_length != 1:
+            length = int(length / msa.tupel_length)
         if (length >= min_sequence_length and length <= max_sequence_length):
             msas_in_range.append(msa)
     if (num_dropped_shallow > 0):
