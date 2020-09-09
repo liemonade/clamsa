@@ -124,12 +124,10 @@ Use one of the following commands:
                 metavar='OUTPUT_FOLDER',
                 help='Folder in which the converted MSA database should be stored. By default the folder "msa/" is used.',
                 type = folder_is_writable_if_exists)
-        
-        
+
         parser.add_argument('--basename',
                 metavar = 'BASENAME',
-                help = 'The base name of the output files to be generated. By default a concatination of the input files is used.',
-        )
+                help = 'The base name of the output files to be generated. By default a concatination of the input files is used.')
 
         parser.add_argument('--phylocsf_out_dir',
                 help = 'Specifies that the MSA database should (also) be converted to PhyloCSF format.',
@@ -162,7 +160,7 @@ Use one of the following commands:
                 metavar = 'MARGIN_WIDTH',
                 type = int,
                 default = 0)        
-        
+
         parser.add_argument('--tupel_length', 
                 help = 'The MSAs will be exported as n-tupel-aligned sequences instead of nucleotide alignments where n is the TUPEL_LENGTH. This flag works only with the INPUT_TYPE fasta and not in combination with the --use_codons flag!',
                 metavar = 'TUPEL_LENGTH',
@@ -177,26 +175,25 @@ Use one of the following commands:
         parser.add_argument('--use_codons', 
                 help = 'The MSAs will be exported as codon-aligned codon sequences instead of nucleotide alignments.',
                 action = 'store_true')
-                
+
         parser.add_argument('--use_amino_acids', 
-                help = 'Use amino acids instead of nucleotides as alphabet.',
-                action = 'store_true',
-        )
-                
+                help = 'Use amino acids instead of nucleotides as alphabet. This flag works only with the INPUT_TYPE fasta.',
+                action = 'store_true')
+
         parser.add_argument('--use_compression',
                 help = 'Whether the output files should be compressed using GZIP or not. By default compression is used.',
                 action = 'store_false')
-        
+
         parser.add_argument('--subsample_lengths',
                 help = 'Negative examples of overrepresented length are undersampled so that the length distributions of positives and negatives are similar. Defaults to false.',
                 action = 'store_true')
+
         parser.add_argument('--subsample_lengths_relax',
                 help = 'Factor for length subsampling probability of negatives. If > 1, the subsampling delivers more data but the negative length distribution fits not as closely that of the positives. Default=1.0', type=float, default=1.0)
-        
+
         parser.add_argument('--verbose',
                 help = 'Whether some logging of the import and export should be performed.',
                 action = 'store_true')
-
 
         parser.add_argument('--split_models',
                 help = 'Whether the dataset should be divided into multiple chunks depending on the models of the sequences. By default no split is performed. Say one wants to split models 0 and 1 then one may achive this by "--split_models 0 1".',
