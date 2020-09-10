@@ -41,7 +41,7 @@ amino_acids = {
 def amino_acid_probability_distribution(tcmc_layer, t, model_id):
     
     
-    P = tcmc_layer.probability_distribution(t)[model_id,...].numpy().T
+    P = tcmc_layer.probability_distribution(t)[model_id,...].numpy()
     pi = tcmc_layer.stationary_distribution[model_id,...]
 
 
@@ -67,10 +67,10 @@ def amino_acid_probability_distribution(tcmc_layer, t, model_id):
             a_indices = np.array([aa_order.index(c) for c in amino_acids[a]])
             b_indices = np.array([aa_order.index(c) for c in amino_acids[b]])
 
-            P_BA = P_perm[b_indices[:,None], a_indices]
+            P_AB = P_perm[a_indices[:,None], b_indices]
             pi_A = pi_perm[a_indices]
 
-            A[i,j] = (1/np.sum(pi_A)) * np.sum(np.dot(P_BA, pi_A))
+            A[i,j] = (1/np.sum(pi_A)) * np.dot(pi_A.T, np.sum(P_AB, axis=1))
     
     return A
 

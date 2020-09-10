@@ -8,12 +8,24 @@ import inspect
 from Bio import SeqIO
 import numpy as np
 import collections
+from functools import partial
+import itertools
 
 import sys
 sys.path.append("..")
 
 from utilities import database_reader
 from utilities import msa_converter
+
+
+
+# On some versions of CuDNN the default LSTM implementation
+# raises a warning. The following code deals with these cases
+# See [here](https://github.com/tensorflow/tensorflow/issues/36508)
+
+gpus = tf.config.experimental.list_physical_devices('GPU')
+for gpu in gpus:
+        tf.config.experimental.set_memory_growth(gpu, True)
 
 def get_hyperparameter(path):
     """
@@ -252,7 +264,7 @@ def predict_on_fasta_files(trial_ids, # OrderedDict of model ids with keys like 
                 continue
 
             yield cid, sl, S
-            
+
     
     # load the wanted models and compile them
     models = collections.OrderedDict( (name, recover_model(trial_ids[name], clades, alphabet_size, log_dir, saved_weights_dir)) for name in trial_ids)
@@ -273,6 +285,8 @@ def predict_on_fasta_files(trial_ids, # OrderedDict of model ids with keys like 
 
     # batch and reshape sequences to match the input specification of tcmc
     #ds = database_reader.padded_batch(ds, batch_size, num_leaves, alphabet_size)
+
+
     padded_shapes = ([], [], [None, max(num_leaves), alphabet_size])
     dataset = dataset.padded_batch(batch_size, 
                                    padded_shapes = padded_shapes, 
@@ -281,6 +295,7 @@ def predict_on_fasta_files(trial_ids, # OrderedDict of model ids with keys like 
                                        tf.constant(0, tf.int64), 
                                        tf.constant(1.0, tf.float64)
                                    ))
+
     dataset = dataset.prefetch(tf.data.experimental.AUTOTUNE)
     dataset = dataset.map(database_reader.concat_sequences, num_parallel_calls = 4)
 
@@ -288,12 +303,15 @@ def predict_on_fasta_files(trial_ids, # OrderedDict of model ids with keys like 
 
     # predict on each model
     preds = collections.OrderedDict()
-    
-    for n in models:        
+
+    for n in models:
         model = models[n]
-        preds[n] = model.predict(dataset)[:,1]
+        try:
+            preds[n] = model.predict(dataset)[:,1]
+        except UnboundLocalError:
+            pass # happens in tf 2.3 when there is no valid MSA
         del model
-        
+
     wellformed_msas = [f for f in fasta_paths if f not in path_ids_with_empty_sequences and f not in path_ids_without_reference_clade]
     preds['path'] = wellformed_msas
     preds.move_to_end('path', last = False) # move MSA file name to front
@@ -303,5 +321,101 @@ def predict_on_fasta_files(trial_ids, # OrderedDict of model ids with keys like 
         
     for p in path_ids_with_empty_sequences:
         print(f'The MSA "{p}" is empty (after) codon-aligning it. Ignoring it.')
+    
+    return preds
+
+
+
+
+def predict_on_tfrecord_files(trial_ids, # OrderedDict of model ids with keys like 'tcmc_rnn'
+                           saved_weights_dir,
+                           log_dir,
+                           clades,
+                           tfrecord_paths,
+                           use_amino_acids = False,
+                           use_codons = True,
+                           tupel_length = 1,
+                           batch_size = 30,
+):
+    # calculate model properties
+    word_len = 3 # codon size or other tuples
+    entry_length = word_len if use_codons else tupel_length
+    alphabet_size = 4 ** entry_length if not use_amino_acids else 20 ** entry_length
+    num_leaves = database_reader.num_leaves(clades)
+    buffer_size = 1000
+    
+    
+    
+    # load the wanted models and compile them
+    models = collections.OrderedDict( (name, recover_model(trial_ids[name], clades, alphabet_size, log_dir, saved_weights_dir)) for name in trial_ids)
+    accuracy_metric = 'accuracy'
+    auroc_metric = tf.keras.metrics.AUC(num_thresholds = 1000, dtype = tf.float32, name='auroc')
+    loss = tf.keras.losses.CategoricalCrossentropy()
+    optimizer = tf.keras.optimizers.Adam(0.0005)
+
+    for n in models:
+        models[n].compile(optimizer = optimizer,
+                          loss = loss,
+                          metrics = [accuracy_metric, auroc_metric])
+
+
+    # construct a `tf.data.Dataset` from the fasta files    
+    # generate a dataset for these files
+    parser = partial(database_reader.parse_tfrecord_entry, num_leaves = num_leaves, alphabet_size=alphabet_size)
+    datasets = {p: tf.data.TFRecordDataset(p, compression_type = 'GZIP' if p.endswith('.gz') else None, buffer_size = buffer_size) \
+                .map(parser, num_parallel_calls = 2) for p in tfrecord_paths}
+    
+
+    # batch and reshape sequences to match the input specification of tcmc
+    #ds = database_reader.padded_batch(ds, batch_size, num_leaves, alphabet_size)
+
+
+    padded_shapes = ([], [], [], [None, max(num_leaves), alphabet_size])
+    
+    for p in tfrecord_paths:
+        
+        dataset = datasets[p]
+        dataset = dataset.padded_batch(batch_size, 
+                                       padded_shapes = padded_shapes, 
+                                       padding_values = (
+                                           tf.constant(0, tf.int32), 
+                                           tf.constant(0, tf.int32), 
+                                           tf.constant(0, tf.int64), 
+                                           tf.constant(1.0, tf.float64)
+                                       ))
+
+        dataset = dataset.prefetch(tf.data.experimental.AUTOTUNE)
+        dataset = dataset.map(database_reader.concatenate_dataset_entries, num_parallel_calls = 4)
+        datasets[p] = dataset
+
+
+
+    # predict on each model
+    preds = collections.OrderedDict()
+    num_seq = {}
+
+    for p in tfrecord_paths:
+        
+        dataset = datasets[p]
+        
+        for n in models:
+            model = models[n]
+            try:
+                pred = model.predict(dataset)[:,1]
+                num_seq[p] = pred.shape[0]
+                preds[n] = np.concatenate((preds[n], pred)) if n in preds else pred
+            except UnboundLocalError:
+                pass # happens in tf 2.3 when there is no valid MSA
+            del model
+            
+    filenames = [[p for _ in range(num_seq[p])] for p in tfrecord_paths]
+    indices = [list(range(num_seq[p])) for p in tfrecord_paths]
+    preds['file'] = list(itertools.chain.from_iterable(filenames))
+    preds['index'] = list(itertools.chain.from_iterable(indices))
+
+    preds.move_to_end('index', last = False)
+    preds.move_to_end('file', last = False) 
+    
+    
     
     return preds
