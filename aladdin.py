@@ -11,8 +11,6 @@ from pathlib import Path
 import pandas as pd
 from collections import OrderedDict
 
-import utilities.msa_converter as mc
-import utilities.model_evaluation as me
 
 
 # Default values
@@ -403,9 +401,9 @@ Use one of the following commands:
             formatter_class=argparse.RawTextHelpFormatter)
 
         parser.add_argument('in_type',
-                choices=['fasta'],
+                choices=['fasta', 'tfrecord'],
                 metavar='INPUT_TYPE',
-                help='Specif the input file type. Supported are: {fasta}',
+                help='Specif the input file type. Supported are: {fasta, tfrecord}',
         )
         
 
@@ -485,40 +483,61 @@ dm3.chr1 dmel''',
         args = parser.parse_args(sys.argv[2:])
         
         
-        
-        # import the list of fasta file paths
-        fasta_paths = []
-        for fl in args.input:
-            with open(fl) as f:
-                fasta_paths.extend(f.read().splitlines())
-
-        model_ids = OrderedDict(args.model_ids) # to fix the models order as in the command-line argument
-
-        # read name->taxon_id translation tables into dictionary if specified
-        trans_dict = {}
-        if not args.name_translation is None:
-            for trfn in args.name_translation:
-                with open(trfn) as f:
-                    for line in f.read().splitlines():
-                        a = line.split('\t')
-                        if len(a) != 2:
-                            raise Exception(f"Translation file {trfn} contains an error in line {line}. Must have 2 tab-separated fields.")
-                        (fasta_name, taxon_id) = a
-                        if fasta_name in trans_dict and trans_dict[fasta_name] != taxon_id:
-                            raise Exception(f"Translation file {trfn} contains conflicting duplicates: {fasta_name} -> {trans_dict[fasta_name]}, {taxon_id}")
-                        trans_dict[fasta_name] = taxon_id
 
         
+        if args.in_type == 'fasta':
+            
+            #import on demand (importing tf is costly)
+            import utilities.msa_converter as mc
+            import utilities.model_evaluation as me
 
-        preds = me.predict_on_fasta_files(trial_ids=args.model_ids,
-                                          saved_weights_dir=args.saved_weights_basedir,
-                                          log_dir=args.log_basedir,
-                                          clades=args.clades,
-                                          fasta_paths = fasta_paths,
-                                          use_codons = args.use_codons,
-                                          batch_size = args.batch_size,
-                                          trans_dict = trans_dict,
-        )
+            # import the list of fasta file paths
+            fasta_paths = []
+            for fl in args.input:
+                with open(fl) as f:
+                    fasta_paths.extend(f.read().splitlines())
+
+            model_ids = OrderedDict(args.model_ids) # to fix the models order as in the command-line argument
+
+            # read name->taxon_id translation tables into dictionary if specified
+            trans_dict = {}
+            if not args.name_translation is None:
+                for trfn in args.name_translation:
+                    with open(trfn) as f:
+                        for line in f.read().splitlines():
+                            a = line.split('\t')
+                            if len(a) != 2:
+                                raise Exception(f"Translation file {trfn} contains an error in line {line}. Must have 2 tab-separated fields.")
+                            (fasta_name, taxon_id) = a
+                            if fasta_name in trans_dict and trans_dict[fasta_name] != taxon_id:
+                                raise Exception(f"Translation file {trfn} contains conflicting duplicates: {fasta_name} -> {trans_dict[fasta_name]}, {taxon_id}")
+                            trans_dict[fasta_name] = taxon_id
+
+                            
+            preds = me.predict_on_fasta_files(trial_ids=args.model_ids,
+                                              saved_weights_dir=args.saved_weights_basedir,
+                                              log_dir=args.log_basedir,
+                                              clades=args.clades,
+                                              fasta_paths = fasta_paths,
+                                              use_codons = args.use_codons,
+                                              batch_size = args.batch_size,
+                                              trans_dict = trans_dict,
+            )
+        
+        if args.in_type == 'tfrecord':
+            
+            #import on demand (importing tf is costly)
+            import utilities.msa_converter as mc
+            import utilities.model_evaluation as me
+            
+            preds = me.predict_on_tfrecord_files(trial_ids=args.model_ids,
+                                              saved_weights_dir=args.saved_weights_basedir,
+                                              log_dir=args.log_basedir,
+                                              clades=args.clades,
+                                              tfrecord_paths = args.input,
+                                              use_codons = args.use_codons,
+                                              batch_size = args.batch_size,
+            )
 
         # construct a dataframe from the predictions
         df = pd.DataFrame.from_dict(preds)
