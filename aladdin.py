@@ -12,6 +12,7 @@ import pandas as pd
 from collections import OrderedDict
 
 
+import utilities.msa_converter as mc
 
 # Default values
 DEFAULT_CONFIG_PATH = "config.ini"
@@ -488,7 +489,6 @@ dm3.chr1 dmel''',
         if args.in_type == 'fasta':
             
             #import on demand (importing tf is costly)
-            import utilities.msa_converter as mc
             import utilities.model_evaluation as me
 
             # import the list of fasta file paths
@@ -527,7 +527,6 @@ dm3.chr1 dmel''',
         if args.in_type == 'tfrecord':
             
             #import on demand (importing tf is costly)
-            import utilities.msa_converter as mc
             import utilities.model_evaluation as me
             
             preds = me.predict_on_tfrecord_files(trial_ids=args.model_ids,
