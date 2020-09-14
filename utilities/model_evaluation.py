@@ -236,6 +236,7 @@ def predict_on_fasta_files(trial_ids, # OrderedDict of model ids with keys like 
                            use_codons = True,
                            batch_size = 30,
                            trans_dict = None,
+                           remove_stop_rows = False,
 ):
     # calculate model properties
     word_len = 3 # codon size or other tuples
@@ -254,7 +255,7 @@ def predict_on_fasta_files(trial_ids, # OrderedDict of model ids with keys like 
         for f in fasta_paths:
 
             # filter fasta files that have no valid reference clade
-            cid, sl, S = msa_converter.parse_fasta_file(f, clades, trans_dict=trans_dict)
+            cid, sl, S = msa_converter.parse_fasta_file(f, clades, trans_dict=trans_dict, remove_stop_rows)
             if cid == -1:
                 path_ids_without_reference_clade.add(f)
                 continue
@@ -412,7 +413,6 @@ def predict_on_tfrecord_files(trial_ids, # OrderedDict of model ids with keys li
 
     preds.move_to_end('index', last = False)
     preds.move_to_end('file', last = False) 
-    
     
     
     return preds
