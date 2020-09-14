@@ -24,7 +24,7 @@ stop_codons = {"taa", "tag", "tga"}
 
 class MSA(object):
     def __init__(self, model = None, chromosome_id = None, start_index = None, end_index = None,
-                 is_on_plus_strand = False, frame = 0, spec_ids = [], offsets = [], sequences = []):
+                 is_on_plus_strand = False, frame = 0, spec_ids = [], offsets = [], sequences = [], use_amino_acids = False, tupel_length = 1):
         self.model = model # label, class, e.g. y=1 for coding, y=0 for non-coding
         self.chromosome_id = chromosome_id
         self.start_index = start_index # chromosomal position
@@ -37,10 +37,14 @@ class MSA(object):
         self._updated_sequences = True
         self._coded_sequences = None
         self.in_frame_stops = []
-
+        self.use_amino_acids = use_amino_acids
+        self.tupel_length = tupel_length
 
     @property
     def coded_sequences(self, alphabet = "acgt"):
+        if self.use_amino_acids:
+            alphabet = "ARNDBCEQZGHILKMFPSTWYV"
+            
         # lazy loading
         if not self._updated_sequences:
             return self._coded_sequences
@@ -49,14 +53,14 @@ class MSA(object):
         inv_coef = -1 if not self.is_on_plus_strand else 1
 
         # translated alphabet as indices of (inversed) alphabet
-        translated_alphabet = dict(zip( alphabet, range(len(alphabet))[::inv_coef] ))
+        translated_alphabet = dict(zip(alphabet, range(len(alphabet))[::inv_coef] ))
 
         # view the sequences as a numpy array
         ca = [S[::inv_coef] for S in self.sequences]
 
         # translate the list of sequences and convert it to a numpy matrix
         # non-alphabet characters are replaced by -1
-        self._coded_sequences = ote.OnehotTupleEncoder.encode(ca, tuple_length=1, use_bucket_alphabet=False)
+        self._coded_sequences = ote.OnehotTupleEncoder.encode(ca, alphabet = alphabet, tuple_length=1, use_bucket_alphabet=False)
 
         # update lazy loading
         self._updated_sequences = False
@@ -64,10 +68,12 @@ class MSA(object):
         return self._coded_sequences
 
     @property
-    def codon_aligned_sequences(self, alphabet='acgt', gap_symbols='-'):
+    def codon_aligned_sequences(self, alphabet="acgt", gap_symbols='-'):
+        if self.use_amino_acids:
+            alphabet = "ARNDBCEQZGHILKMFPSTWYV"
         # size of a codon in characters
-        c = 3
-
+        c = 3 if self.tupel_length == 1 else self.tupel_length 
+        
         # the list of sequences that should be codon aligned
         sequences = self.sequences
 
@@ -81,9 +87,12 @@ class MSA(object):
         return cali
 
     @property
-    def coded_codon_aligned_sequences(self, alphabet='acgt', gap_symbols = '-'):
+    def coded_codon_aligned_sequences(self, alphabet="acgt", gap_symbols = '-'):
+        if self.use_amino_acids:
+            alphabet = "ARNDBCEQZGHILKMFPSTWYV"
         ca = self.codon_aligned_sequences
-        return ote.OnehotTupleEncoder.encode(ca, tuple_length=3, use_bucket_alphabet=False)
+        c = 3 if self.tupel_length == 1 else self.tupel_length 
+        return ote.OnehotTupleEncoder.encode(ca, alphabet = alphabet, tuple_length = c, use_bucket_alphabet = False)
 
     @property
     def sequences(self):
@@ -97,6 +106,8 @@ class MSA(object):
             length = len(self._sequences[0])
             if use_codons:
                 length = int(length / 3) # may differ from the number of codon columns
+            if not use_codons and self.tupel_length != 1:
+                length = int(length / self.tupel_length) 
         return length
 
     def delete_rows(self, which):
@@ -227,7 +238,7 @@ def leaf_order(path, use_alternatives=False):
     # these are precisely those nodes which do not have children
     # i.e. to the left of the node is either a '(' or ',' character
     # or the beginning of the line
-    leave_regex = re.compile('(?:^|[(,])([a-zA-Z0-9]*)[:](?:(?:[0-9]*[.])?[0-9]+)')
+    leave_regex = re.compile('(?:^|[(,])([\w.-]*)[:](?:(?:[0-9]*[.])?[0-9]+)')
     
     with open(path, 'r') as fp:
         
@@ -251,9 +262,8 @@ def leaf_order(path, use_alternatives=False):
                 matches = [set([matches[i]] + alt[matches[i]]) for i in range(len(matches))]
             
         return matches
-
-
-def import_fasta_training_file(paths, undersample_neg_by_factor = 1., reference_clades = None, margin_width = 0):
+    
+def import_fasta_training_file(paths, undersample_neg_by_factor = 1., reference_clades = None, margin_width = 0, tupel_length = 1, use_amino_acids = False):
     """ Imports the training files in fasta format.
     Args:
         paths (List[str]): Location of the file(s) 
@@ -261,22 +271,18 @@ def import_fasta_training_file(paths, undersample_neg_by_factor = 1., reference_
                                            set to 1.0 to use all negative examples
         reference_clades (newick.Node): Root of a reference clade. The given order of species in this tree will be used in the input file(s). 
         margin_width (int): Width of flanking region around sequences
+        tupel_length (int): Length of an entry of the alphabet. e.g. 3 if you use codons or 1 if you use nucleotides as alphabet
+        used_amino_acids (bool): True if you want to use amino acids instead of nucleotides as alphabet.
     
-        * Example for input fasta file
+    Example for input fasta file:
         *
-        * >species_name_1|101001110
+        * >species_name_1|...|1
         * acaatcggt
         * >species_name_2
         * acaat---t
         *
-        * The numbers after the species name determine the models for every column of the alignment. 
-        * If you have e.g. an aligment of codons, you can use one model for 3 columns in the alignment
-        *
-        * >species_name_1|101
-        * acaatcggt
-        * >species_name_2
-        * acaatt---
-    
+        * The last entry in the header determine the model of the alignment. Here: model = 1.
+
     Returns:
         List[MSA]: Training examples read from the file(s).
         List[List[str]]: Unique species configurations either encountered or given by reference.
@@ -304,8 +310,8 @@ def import_fasta_training_file(paths, undersample_neg_by_factor = 1., reference_
         # parse the species names
         spec_in_file = [e.id.split('|')[0] for e in entries]
         
-        # parse the models
-        models_in_file = entries[0].id.split('|')[1] 
+        # parse the model
+        model = int(entries[0].id.split('|')[-1]) 
         
         # compare them with the given references
         ref_ids = [[(r,i) for r in range(len(species)) for i in range(len(species[r])) if s in species[r][i] ] for s in spec_in_file]
@@ -321,14 +327,32 @@ def import_fasta_training_file(paths, undersample_neg_by_factor = 1., reference_
         if len(set(r for (r,i) in ref_ids)) > 1:
             continue
                     
-        # read the sequences and trim them if wanted
-        sequences = [str(rec.seq).lower() for rec in entries]
-        sequences = sequences[margin_width:-margin_width] if margin_width > 0 else sequences
-        
-        if len(sequences[0]) % len(models_in_file) == 0:
-            alphabet_len = int(len(sequences[0]) / len(models_in_file)) # e.g. 1 for amino acids or 3 for codons
+        # read the sequences and trim them if wanted        
+        if not use_amino_acids:
+            sequences = [str(rec.seq).lower() for rec in entries]
         else:
-            raise ValueError("Wrong number of models.")
+            sequences = [str(rec.seq) for rec in entries]
+        sequences = sequences[margin_width:-margin_width] if margin_width > 0 else sequences
+
+        # decide whether the upcoming entry should be skipped
+        skip_entry = model == 0 and random.random() > 1. / undersample_neg_by_factor
+        if skip_entry:
+            continue
+
+        msa = MSA(
+                  model = model,
+                  chromosome_id = None, 
+                  start_index = None,
+                  end_index = None,
+                  is_on_plus_strand = True,
+                  frame = 0,
+                  spec_ids = ref_ids,
+                  offsets = [],
+                  sequences = sequences,
+                  use_amino_acids = use_amino_acids,
+                  tupel_length = tupel_length
+                 )        
+        training_data.append(msa)
 
         for i in range(len(models_in_file)):
             # decide whether the upcoming entry should be skipped
@@ -734,6 +758,8 @@ def subsample_lengths(msas, use_codons, max_sequence_length = 14999, min_sequenc
         length = msa.alilen(use_codons)
         if use_codons:
             length = int(length / 3)
+        if not use_codons and msa.tupel_length != 1:
+            length = int(length / msa.tupel_length)
         if (length >= min_sequence_length and length <= max_sequence_length):
             msas_in_range.append(msa)
     if (num_dropped_shallow > 0):
@@ -1056,7 +1082,7 @@ def persist_as_tfrecord(dataset, out_dir, basename, species,
             #Write a coded MSA (either as sequence of nucleotides or codons) as an entry into a  Tensorflow-Records file.
             # in order to do so we need to setup the proper format for `tf.train.SequenceExample`
 
-            # Use the correct onehot encded sequences
+            # Use the correct onehot encoded sequences
             coded_sequences = msa.coded_codon_aligned_sequences if use_codons else msa.coded_sequences
 
             # Infer the length of the sequences

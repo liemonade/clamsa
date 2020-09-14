@@ -195,7 +195,7 @@ def parse_fasta_file(fasta_path, clades, margin_width=0):
         offsets = [],
         sequences = sequences
     )
-    # Use the correct onehot encded sequences
+    # Use the correct onehot encoded sequences
     coded_sequences = msa.coded_codon_aligned_sequences if use_codons else msa.coded_sequences
     
     # Infer the length of the sequences
@@ -233,15 +233,16 @@ def predict_on_fasta_files(trial_ids, # OrderedDict of model ids with keys like 
                            log_dir,
                            clades,
                            fasta_paths,
+                           use_amino_acids = False,
                            use_codons = True,
+                           tupel_length = 1,
                            batch_size = 30,
                            trans_dict = None,
                            remove_stop_rows = False,
 ):
     # calculate model properties
-    word_len = 3 # codon size or other tuples
-    entry_length = word_len if use_codons else 1
-    alphabet_size = 4 ** entry_length
+    tupel_length = 3 if use_codons else tupel_length
+    alphabet_size = 4 ** tupel_length if not use_amino_acids else 20 ** tupel_length
     num_leaves = database_reader.num_leaves(clades)
     
     trans_dict = trans_dict if not trans_dict is None else {}
@@ -332,13 +333,15 @@ def predict_on_tfrecord_files(trial_ids, # OrderedDict of model ids with keys li
                            log_dir,
                            clades,
                            tfrecord_paths,
+                           use_amino_acids = False,
                            use_codons = True,
+                           tupel_length = 1,
                            batch_size = 30,
 ):
     # calculate model properties
     word_len = 3 # codon size or other tuples
-    entry_length = word_len if use_codons else 1
-    alphabet_size = 4 ** entry_length
+    entry_length = word_len if use_codons else tupel_length
+    alphabet_size = 4 ** entry_length if not use_amino_acids else 20 ** entry_length
     num_leaves = database_reader.num_leaves(clades)
     buffer_size = 1000
     
