@@ -429,7 +429,11 @@ Use one of the following commands:
                             action = 'store_true',
         )
         
-        
+        parser.add_argument('--remove_stop_rows',
+                            help = 'Alignment rows that contain an in-frame stop are completely removed.',
+                            action = 'store_true',
+        )
+
         
         parser.add_argument('--batch_size',
                             help='Number of MSAs to evaluate per computation step.\nHigher batch sizes increase the speed of evaluation, though require more RAM / VRAM in the case of CPU / GPU evaluation.',
@@ -522,6 +526,7 @@ dm3.chr1 dmel''',
                                               use_codons = args.use_codons,
                                               batch_size = args.batch_size,
                                               trans_dict = trans_dict,
+                                              remove_stop_rows = args.remove_stop_rows,
             )
         
         if args.in_type == 'tfrecord':
