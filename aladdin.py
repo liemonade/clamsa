@@ -511,25 +511,9 @@ dm3.chr1 dmel''',
                             type=file_exists,
                             nargs='+',
         )
-
-
-        
+       
         # ignore the initial args specifying the command
         args = parser.parse_args(sys.argv[2:])
-        
-
-
-        preds = me.predict_on_fasta_files(trial_ids=args.model_ids,
-                                          saved_weights_dir=args.saved_weights_basedir,
-                                          log_dir=args.log_basedir,
-                                          clades=args.clades,
-                                          fasta_paths = fasta_paths,
-                                          use_amino_acids = args.use_amino_acids,
-                                          use_codons = args.use_codons,
-                                          tupel_length = args.tupel_length,
-                                          batch_size = args.batch_size,
-                                          trans_dict = trans_dict,
-        )
 
         if args.in_type == 'fasta':
             
