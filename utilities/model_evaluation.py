@@ -238,6 +238,7 @@ def predict_on_fasta_files(trial_ids, # OrderedDict of model ids with keys like 
                            tupel_length = 1,
                            batch_size = 30,
                            trans_dict = None,
+                           remove_stop_rows = False,
 ):
     # calculate model properties
     tupel_length = 3 if use_codons else tupel_length
@@ -255,7 +256,7 @@ def predict_on_fasta_files(trial_ids, # OrderedDict of model ids with keys like 
         for f in fasta_paths:
 
             # filter fasta files that have no valid reference clade
-            cid, sl, S = msa_converter.parse_fasta_file(f, clades, trans_dict=trans_dict)
+            cid, sl, S = msa_converter.parse_fasta_file(f, clades, trans_dict=trans_dict, remove_stop_rows)
             if cid == -1:
                 path_ids_without_reference_clade.add(f)
                 continue
@@ -389,15 +390,39 @@ def predict_on_tfrecord_files(trial_ids, # OrderedDict of model ids with keys li
         datasets[p] = dataset
 
 
+    # function to extract meta data from the sequences
+    from tf_tcmc.tcmc.tensor_utils import BatchedSequences
+    bs_layer = BatchedSequences(feature_size = max(num_leaves), dtype=tf.float64, name="batched_sequences")    
+    def sequence_data(X, y):
+        sequences, clade_ids, sequence_lengths = X
+        S = tf.transpose(sequences, perm = [1, 0, 2])
+        sl = tf.expand_dims(sequence_lengths, axis=-1)
+
+        nontrivial_entries = tf.logical_not(tf.reduce_all(sequences == tf.ones(64, dtype=tf.float64), axis=-1))
+        nontrivial_entries = tf.cast(nontrivial_entries, dtype=tf.float64)
+        nontrivial_entries_batched = bs_layer(nontrivial_entries, sl)
+        nontrivial_entries_batched = tf.cast(nontrivial_entries_batched, dtype=tf.bool)
+        aligned_sequences = tf.reduce_any(nontrivial_entries_batched, axis=1)
+        aligned_sequences = tf.reduce_sum(tf.cast(aligned_sequences, dtype=tf.int64), axis=-1)
+
+        model = tf.cast(y[:,1], dtype=tf.int64)
+        return (aligned_sequences, sequence_lengths, model)
+
 
     # predict on each model
     preds = collections.OrderedDict()
     num_seq = {}
+    
+    # wanted sequence meta data
+    aligned_sequences = None
+    sequence_lengths = None
+    Y = None
 
     for p in tfrecord_paths:
         
         dataset = datasets[p]
         
+        # evaluate the models
         for n in models:
             model = models[n]
             try:
@@ -408,14 +433,28 @@ def predict_on_tfrecord_files(trial_ids, # OrderedDict of model ids with keys li
                 pass # happens in tf 2.3 when there is no valid MSA
             del model
             
+        # extract the meta data
+        for num_ali, sl, y in dataset.map(sequence_data).as_numpy_iterator():
+            aligned_sequences = np.concatenate((aligned_sequences, num_ali)) if not aligned_sequences is None else num_ali
+            sequence_lengths = np.concatenate((sequence_lengths, sl)) if not sequence_lengths is None else sl
+            Y = np.concatenate((Y, y)) if not Y is None else y
+                    
+    
     filenames = [[p for _ in range(num_seq[p])] for p in tfrecord_paths]
     indices = [list(range(num_seq[p])) for p in tfrecord_paths]
     preds['file'] = list(itertools.chain.from_iterable(filenames))
     preds['index'] = list(itertools.chain.from_iterable(indices))
+    preds['aligned_sequences'] = aligned_sequences
+    preds['sequence_length'] = sequence_lengths
+    preds['y'] = Y
 
+    
+    
+    preds.move_to_end('aligned_sequences', last = False)
+    preds.move_to_end('sequence_length', last = False)
+    preds.move_to_end('y', last = False)
     preds.move_to_end('index', last = False)
     preds.move_to_end('file', last = False) 
-    
     
     
     return preds
