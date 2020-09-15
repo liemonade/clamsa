@@ -39,7 +39,7 @@ def train_models(input_dir,
               'val': {'name': 'val', 'wanted_models': [0, 1], 'interweave_models': True, 'repeat_models': [False, False]},
               'test': {'name': 'test', 'wanted_models': [0, 1], 'interweave_models': True, 'repeat_models': [False, False]},
           },
-          tuple_length = 3,
+          tuple_length = 1,
           use_amino_acids = False,
           used_codons = False,
           model_hyperparameters = {

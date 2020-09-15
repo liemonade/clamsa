@@ -335,7 +335,7 @@ def predict_on_tfrecord_files(trial_ids, # OrderedDict of model ids with keys li
                            tfrecord_paths,
                            use_amino_acids = False,
                            use_codons = False,
-                           tuple_length = 3,
+                           tuple_length = 1,
                            batch_size = 30,
 ):
     # calculate model properties
