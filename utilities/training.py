@@ -39,9 +39,9 @@ def train_models(input_dir,
               'val': {'name': 'val', 'wanted_models': [0, 1], 'interweave_models': True, 'repeat_models': [False, False]},
               'test': {'name': 'test', 'wanted_models': [0, 1], 'interweave_models': True, 'repeat_models': [False, False]},
           },
-          tupel_length = 1,
+          tuple_length = 3,
           use_amino_acids = False,
-          used_codons = True,
+          used_codons = False,
           model_hyperparameters = {
               "tcmc_rnn": {
                   "tcmc_models": [8,],
@@ -74,8 +74,8 @@ def train_models(input_dir,
     
     # calculate some features from the input
     num_leaves = database_reader.num_leaves(clades)
-    tupel_length = 3 if used_codons else tupel_length
-    alphabet_size = 4 ** tupel_length if not use_amino_acids else 20 ** tupel_length
+    tuple_length = 3 if used_codons else tuple_length
+    alphabet_size = 4 ** tuple_length if not use_amino_acids else 20 ** tuple_length
 
     # evaluate the split specifications
     splits = {'train': None, 'val': None, 'test': None}
@@ -164,9 +164,9 @@ def train_models(input_dir,
 
             # decode the sequence and print some columns
             if use_amino_acids:                
-                dec = ote.OnehotTupleEncoder.decode_tfrecord_entry(S.numpy(), tuple_length = tupel_length, use_bucket_alphabet = False)
+                dec = ote.OnehotTupleEncoder.decode_tfrecord_entry(S.numpy(), tuple_length = tuple_length, use_bucket_alphabet = False)
             else:
-                dec = ote.OnehotTupleEncoder.decode_tfrecord_entry(S.numpy(), tuple_length = tupel_length)
+                dec = ote.OnehotTupleEncoder.decode_tfrecord_entry(S.numpy(), tuple_length = tuple_length)
             print(f'first (up to) 8 alignment columns of decoded reshaped sequence: \n{dec[:,:8]}')
 
     # obtain the model creation functions for the wanted models

@@ -160,9 +160,9 @@ Use one of the following commands:
                 type = int,
                 default = 0)        
 
-        parser.add_argument('--tupel_length', 
-                help = 'The MSAs will be exported as n-tupel-aligned sequences instead of nucleotide alignments where n is the TUPEL_LENGTH. This flag works only with the INPUT_TYPE fasta and not in combination with the --use_codons flag!',
-                metavar = 'TUPEL_LENGTH',
+        parser.add_argument('--tuple_length', 
+                help = 'The MSAs will be exported as n-tupel-aligned sequences instead of nucleotide alignments where n is the tuple_length. This flag works only with the INPUT_TYPE fasta and not in combination with the --use_codons flag!',
+                metavar = 'TUPLE_LENGTH',
                 type = int,
                 default = 1)
 
@@ -209,7 +209,7 @@ Use one of the following commands:
             T, species = mc.import_fasta_training_file(args.input_files,
                                                        reference_clades = args.clades,
                                                        margin_width = args.margin_width,
-                                                       tupel_length = args.tupel_length,
+                                                       tuple_length = args.tuple_length,
                                                        use_amino_acids = args.use_amino_acids)
 
         if args.in_type == 'augustus':
@@ -302,9 +302,9 @@ Use one of the following commands:
                             nargs='+',
         )
         
-        parser.add_argument('--tupel_length', 
-                            help = 'The MSAs will be exported as n-tupel-aligned sequences instead of nucleotide alignments where n is the tupel_length. If n = 3, you can use the flag --use_codons instead.',
-                            metavar = 'TUPEL_LENGTH',
+        parser.add_argument('--tuple_length', 
+                            help = 'The MSAs will be exported as n-tupel-aligned sequences instead of nucleotide alignments where n is the tuple_length. If n = 3, you can use the flag --use_codons instead.',
+                            metavar = 'TUPLE_LENGTH',
                             type = int,
                             default = 1)
         
@@ -400,7 +400,7 @@ Use one of the following commands:
                      args.clades,
                      args.merge_behaviour,
                      args.split_specifications,
-                     args.tupel_length,
+                     args.tuple_length,
                      args.use_amino_acids,
                      args.used_codons,
                      args.model_hyperparameters,
@@ -443,9 +443,9 @@ Use one of the following commands:
                             nargs='+',
         )
 
-        parser.add_argument('--tupel_length', 
-                            help = 'The MSAs will be exported as n-tupel-aligned sequences instead of nucleotide alignments where n is the tupel_length. If n = 3, you can use the flag --use_codons instead.',
-                            metavar = 'TUPEL_LENGTH',
+        parser.add_argument('--tuple_length', 
+                            help = 'The MSAs will be exported as n-tupel-aligned sequences instead of nucleotide alignments where n is the tuple_length. If n = 3, you can use the flag --use_codons instead.',
+                            metavar = 'TUPLE_LENGTH',
                             type = int,
                             default = 1)
                 
@@ -550,7 +550,7 @@ dm3.chr1 dmel''',
                                               fasta_paths = fasta_paths,
                                               use_amino_acids = args.use_amino_acids,
                                               use_codons = args.use_codons,
-                                              tupel_length = args.tupel_length,
+                                              tuple_length = args.tuple_length,
                                               batch_size = args.batch_size,
                                               trans_dict = trans_dict,
                                               remove_stop_rows = args.remove_stop_rows,
@@ -568,7 +568,7 @@ dm3.chr1 dmel''',
                                               tfrecord_paths = args.input,
                                               use_amino_acids = args.use_amino_acids,
                                               use_codons = args.use_codons,
-                                              tupel_length = args.tupel_length,
+                                              tuple_length = args.tuple_length,
                                               batch_size = args.batch_size,
             )
 
