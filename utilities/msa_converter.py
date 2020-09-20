@@ -24,7 +24,8 @@ stop_codons = {"taa", "tag", "tga"}
 
 class MSA(object):
     def __init__(self, model = None, chromosome_id = None, start_index = None, end_index = None,
-                 is_on_plus_strand = False, frame = 0, spec_ids = [], offsets = [], sequences = [], use_amino_acids = False, tuple_length = 1):
+                 is_on_plus_strand = False, frame = 0, spec_ids = [], offsets = [], sequences = [], use_amino_acids = False, tuple_length = 1,
+                 fname = None):
         self.model = model # label, class, e.g. y=1 for coding, y=0 for non-coding
         self.chromosome_id = chromosome_id
         self.start_index = start_index # chromosomal position
@@ -39,7 +40,7 @@ class MSA(object):
         self.in_frame_stops = []
         self.use_amino_acids = use_amino_acids
         self.tuple_length = tuple_length
-
+        self.fname = fname
     @property
     def coded_sequences(self, alphabet = "acgt"):
         if self.use_amino_acids:
@@ -620,7 +621,7 @@ def import_phylocsf_training_file(paths, undersample_neg_by_factor = 1., referen
         #file_indices = [(split_name, model, ) for ]
         phylo_files = [zipfile.ZipFile(path, 'r') for path in paths]
         # read the filenames of all fasta files inside these archives
-        fastas = [[p.getinfo(n) for n in p.namelist() if n.endswith('.mfa')] for p in phylo_files]
+        fastas = [[p.getinfo(n) for n in p.namelist() if (n.endswith('.mfa') or n.endswith('.fa'))] for p in phylo_files]
 
         # total number of bytes to be read
         total_bytes = sum([sum([f.compress_size for f in fastas[i]]) for i in range(len(phylo_files))])
@@ -679,7 +680,8 @@ def import_phylocsf_training_file(paths, undersample_neg_by_factor = 1., referen
                             frame = int(header_fields[2][-1]),
                             spec_ids = ref_ids,
                             offsets = [],
-                            sequences = sequences
+                            sequences = sequences,
+                            fname = fasta.filename
                     )
                     training_data.append(msa)
                     pbar.update(fasta.compress_size)
@@ -1140,12 +1142,13 @@ def get_end_offset(start_offset, seqlen):
     
 def write_phylocsf(dataset, out_dir, basename, species,
                    splits = None, split_models = None, split_bins = None, 
-                   n_wanted = None, use_codons = False):
+                   n_wanted = None, use_codons = False, refid = None, orig_fnames = False):
     """
        Each MSA is written into a single text file in a FASTA format required by PhyloCSF
        and accepted by aladdin predict. In particular,
        - the putative codon MSA is one the forward strand and
        - the output phase is 0, i.e. the alignment would start with a complete codon if y=1
+       - the refid (index of species in its clade) is listed as first sequence if it is present.
     """
     print ("Writing to PhyloCSF flat files...")
     classnames = ["controls", "exons"]
@@ -1153,8 +1156,6 @@ def write_phylocsf(dataset, out_dir, basename, species,
     phyloDEBUG = False
     margin_width = 0
     splitnames = list(splits.keys()) # e.g. train, val1, val2, test
-           
-    refid = None # 3 (dm) is reference,
     class_counts = [0, 0] # how many examples of class y=0 and y=1 have been seen yet
     n_written = np.zeros([len(splits), len(split_models)])
     
@@ -1164,8 +1165,6 @@ def write_phylocsf(dataset, out_dir, basename, species,
     for i in tqdm(range(n_wanted), desc = "Writing PhyloCSF dataset", unit = " MSA"):
         s = np.digitize(i, split_bins)
         split_dir = os.path.join(out_dir, basename, splitnames[s])
-        if not os.path.exists(split_dir):
-            os.makedirs(split_dir)
         
         msa = dataset[i]
         # get the id of the used clade and leaves inside this clade
@@ -1177,20 +1176,23 @@ def write_phylocsf(dataset, out_dir, basename, species,
         assert y == 0 or y == 1, "PhyloCSF output expects binary class"
         
         class_dir = os.path.join(split_dir, classnames[y])
-        if not os.path.exists(class_dir):
-            os.makedirs(class_dir)  
-
         subdir = os.path.join(class_dir, "{:03d}".format(int(class_counts[y] / subdir_size)))
-        if not os.path.exists(subdir):
-            os.makedirs(subdir)
 
-        fname = os.path.join(subdir, "{:03d}.fa".format(class_counts[y]))
+        if orig_fnames and msa.fname:
+            fname = msa.fname
+        else:
+            fname = os.path.join(subdir, "{:03d}.fa".format(class_counts[y]))
+
+        # create all necessary parent directories like with mkdir -p
+        dirname = os.path.dirname(fname)
+        os.makedirs(dirname, exist_ok = True)
+
         fa = open(fname, "w+")
         
         class_counts[y] += 1
         # indices to species ids sorted so reference is first
         # not required by PhyloCSF
-        
+
         if refid:
             sids = sorted(range(len(msa.spec_ids)), key = lambda k: ((msa.spec_ids[k])[1] != refid))
         else:
@@ -1208,10 +1210,18 @@ def write_phylocsf(dataset, out_dir, basename, species,
                c---t-ttg           ---ttg
         """
         maxrowlen = -1
+        if use_codons:
+            rows = msa.codon_aligned_sequences
+            frame = 0
+            on_plus_strand = True
+        else:
+            rows = msa.sequences
+            on_plus_strand = msa.is_on_plus_strand
+
         # in a first pass, delete the first f non-gap chars from each seq
         for j, k in enumerate(sids):
-            oldseq = msa.sequences[sids[j]]
-            if not msa.is_on_plus_strand: # on minus strand
+            oldseq = rows[sids[j]]
+            if not on_plus_strand: # on minus strand
                 oldseq = oldseq[::-1].translate(tbl) # reverse and complement
             i = c = 0
             while c < frame and i < len(oldseq):
@@ -1235,8 +1245,7 @@ def write_phylocsf(dataset, out_dir, basename, species,
                    and msa.end_index is not None:
                     fa.write(msa.chromosome_id + ":" + str(msa.start_index) + "-" + str(msa.end_index))
                     fa.write("||originally:f=" + str(frame) + ",strand=" + ("+" if msa.is_on_plus_strand else "-"))
-                if phyloDEBUG:     
-                    fa.write((" +" if msa.is_on_plus_strand else " -") + " phase="  + str(frame))
+
             fa.write("\n")
             seq = newrows[j]
             fa.write("-" * (maxrowlen - len(seq)) + seq + "\n") # padd with gaps if MSA frayed after frame correction

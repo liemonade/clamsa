@@ -132,6 +132,12 @@ Use one of the following commands:
                 help = 'Specifies that the MSA database should (also) be converted to PhyloCSF format.',
                 type = folder_is_writable_if_exists)
 
+        parser.add_argument('--refid',
+                            metavar = 'R',
+                            help = 'The index of the reference species that should be in the first MSA row.',
+                            type = int,
+                            default = None)
+
         parser.add_argument('--write_nexus',
                 metavar = 'NEX_FILENAME',
                 help = 'A sample of positive alignments are concatenated and converted to a NEXUS format that can be used directly by MrBayes to create a tree.')
@@ -140,7 +146,7 @@ Use one of the following commands:
                 metavar = 'N',
                 help = 'The sample size (=number of alignments) of the nexus output. The sample is taken uniformly from among all positive alignments in random order.',
                 type = int,
-                default = 3)
+                            default = 500)
 
         parser.add_argument('--splits', 
                 help = 'The imported MSA database will be splitted into the specified pieces. SPLITS_JSON is assumed to be a a dictionairy in JSON notation. The keys are used in conjunction with the base name to specify an output path. The values are assumed to be either positive integers or floating point numbers between zero and one. In the former case up to this number of examples will be stored in the respective split. In the latter case the number will be treated as a percentage number and the respective fraction of the data will be stored in the split. A value of -1 specifies that the remaining entries are distributed among the splits of negative size. All (filtered) examples are used in this case.',
@@ -173,6 +179,14 @@ Use one of the following commands:
 
         parser.add_argument('--use_codons', 
                 help = 'The MSAs will be exported as codon-aligned codon sequences instead of nucleotide alignments.',
+                action = 'store_true')
+
+        parser.add_argument('--phylocsf_out_use_codons',
+                help = 'The PhyloCSF output MSAs will be exported as codon-aligned codon sequences instead of nucleotide alignments.',
+                action = 'store_true')
+
+        parser.add_argument('--orig_fnames',
+                help = 'The original input relative filename paths will be used for outputs. Can be used only for phylocsf input type.',
                 action = 'store_true')
 
         parser.add_argument('--use_amino_acids', 
@@ -266,7 +280,10 @@ Use one of the following commands:
                         args.basename,
                         species,
                         splits, split_models, split_bins, n_wanted,
-                        use_codons = args.use_codons)
+                        use_codons = args.phylocsf_out_use_codons,
+                        refid = args.refid,
+                        orig_fnames = args.orig_fnames
+                )
                 
                 print(f'The datasets have sucessfully been saved in PhyloCSF files.')
 
