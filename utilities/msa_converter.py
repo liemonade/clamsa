@@ -537,7 +537,13 @@ def parse_fasta_file(fasta_path, clades, use_codons=True, margin_width=0, trans_
 
     # the first entry of the fasta file has the header informations
     header_fields = entries[0].id.split("|")
-    
+    # allow noninformative fasta headers as well
+    frame = 0
+    if len(header_fields) > 2:
+        try:
+            frame =  int(header_fields[2][-1])
+        except ValueError:
+            pass # leave frame at 0 by default
 
     # read the sequences and trim them if wanted
     sequences = [str(rec.seq).lower() for rec in entries]
@@ -549,7 +555,7 @@ def parse_fasta_file(fasta_path, clades, use_codons=True, margin_width=0, trans_
         start_index = None,
         end_index = None,
         is_on_plus_strand = True if len(header_fields) < 5 or header_fields[4] != 'revcomp' else False,
-        frame = int(header_fields[2][-1]),
+        frame = frame,
         spec_ids = ref_ids,
         offsets = [],
         sequences = sequences
