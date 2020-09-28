@@ -415,7 +415,7 @@ Use one of the following commands:
         train_models(args.input_dir, 
                      args.basenames,
                      args.clades,
-                     args.merge_behaviour,
+                     args.merge_behaviour if args.merge_behaviour else 'evenly',
                      args.split_specifications,
                      args.tuple_length,
                      args.use_amino_acids,
