@@ -6,8 +6,7 @@ Assuming a working conda environment, the following commands will install all ne
 ```console
 conda install numpy tensorflow-gpu regex biopyton
 conda install -c bioconda python-newick
-conda install -c conda-forge tqdm
-pip install protobuf3-to-dict==0.1.5
+conda install -c conda-forge tqdm protobuf3-to-dict
 ```
 
 # Example Conversion
