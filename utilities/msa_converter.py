@@ -1151,7 +1151,7 @@ def write_phylocsf(dataset, out_dir, basename, species,
                    n_wanted = None, use_codons = False, refid = None, orig_fnames = False):
     """
        Each MSA is written into a single text file in a FASTA format required by PhyloCSF
-       and accepted by aladdin predict. In particular,
+       and accepted by clamsa predict. In particular,
        - the putative codon MSA is one the forward strand and
        - the output phase is 0, i.e. the alignment would start with a complete codon if y=1
        - the refid (index of species in its clade) is listed as first sequence if it is present.

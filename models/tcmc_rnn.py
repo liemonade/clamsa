@@ -18,7 +18,7 @@ def create_model(forest,
                  rnn_type='lstm',
                  rnn_units=32,
                  dense_dimension=16,
-                 name="aladdin_tcmc_rnn"):
+                 name="clamsa_tcmc_rnn"):
     
     num_leaves = database_reader.num_leaves(forest)
     N = max(num_leaves)

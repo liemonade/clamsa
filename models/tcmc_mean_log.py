@@ -18,7 +18,7 @@ def create_model(forest,
                  sequence_length_as_feature=False,
                  dense1_dimension=16,
                  dense2_dimension=16,
-                 name="aladdin_mean_log"):
+                 name="clamsa_mean_log"):
     
     num_leaves = database_reader.num_leaves(forest)
     N = max(num_leaves)
