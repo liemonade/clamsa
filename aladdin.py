@@ -14,33 +14,8 @@ from collections import OrderedDict
 
 import utilities.msa_converter as mc
 
-# Default values
-DEFAULT_CONFIG_PATH = "config.ini"
-ALADDIN_VERSION = "0.1" # A version number used to check for compatibility
-
-# Default config name
-DEFAULT_CONFIG_NAME = 'DEFAULT'
 
 
-# Parameter names in config file
-CFG_IN_SECTION = 'ConfigInName'
-CFG_OUT_SECTION = 'ConfigOutName'
-CFG_CLADES = 'CladePaths'
-CFG_MSA = 'MSAPaths'
-CFG_MODEL_SPEC = 'ModelSpecificationPath'
-CFG_MODEL_WEIGHTS = 'ModelWeightsPath'
-CFG_SHOULD_TRAIN = 'TrainingMode'
-
-# Parameter names in cmd-line
-PARAMETER_NAMES = {
-    CFG_IN_SECTION: "load_config",
-    CFG_OUT_SECTION: "save_config",
-    CFG_CLADES: "clade",
-    CFG_MSA: "input_files",
-    CFG_MODEL_SPEC: "model_spec",
-    CFG_MODEL_WEIGHTS: "model_weights",
-    CFG_SHOULD_TRAIN: 'train',
-}
 
 def file_exists(arg):
     if not os.path.isfile(arg):
