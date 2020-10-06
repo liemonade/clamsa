@@ -1,5 +1,5 @@
 # clamsa
-ClaMSA (_Classify Multiple Sequence Alignments_). 
+ClaMSA (**Cla**ssify **M**ultiple **S**equence **A**lignments). 
 
 # Needed packages
 Assuming a working conda environment, the following commands will install all needed packages for clamsa
