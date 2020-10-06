@@ -1,8 +1,8 @@
-# aladdin
-Aladdin (working title). Now with the epic quest of searching coding sequences in MSA's instead of a lamp in the Cave of Wonders...
+# clamsa
+ClaMSA (_Classify Multiple Sequence Alignments_). 
 
 # Needed packages
-Assuming a working conda environment, the following commands will install all needed packages for aladdin
+Assuming a working conda environment, the following commands will install all needed packages for clamsa
 ```console
 conda install numpy tensorflow-gpu regex biopyton
 conda install -c bioconda python-newick
@@ -12,14 +12,14 @@ conda install -c conda-forge tqdm protobuf3-to-dict
 # Example Conversion
 Example conversion parameters for our usual flie dataset from augustus:
 ```console
-./aladdin.py convert augustus msa/train.out --clades clades/flies.nwk --splits '{"train": 0.9, "test": 0.05, "val": 0.05}' --margin_width 10 --basename augustus_flies --use_codons --split_models 0 1
+./clamsa.py convert augustus msa/train.out --clades clades/flies.nwk --splits '{"train": 0.9, "test": 0.05, "val": 0.05}' --margin_width 10 --basename augustus_flies --use_codons --split_models 0 1
 ```
 Where we assume that the file `train.out` is stored in the folder `msa` and the Newick file specifying the phylogenetic tree is stored in `clades/flies.nwk`.
 
 Synchronous export to tensorflow records and PhyloCSF files:
 
 ```
-./aladdin.py convert augustus sample2.out \
+./clamsa.py convert augustus sample2.out \
    --subsample_lengths  \
    --ratio_neg_to_pos 2 \
    --tf_out_dir tf_out \
@@ -61,7 +61,7 @@ The datasets have sucessfully been saved in PhyloCSF files.
 
 We can use these Tensorflow .tfrecords files to train a set of models with multiple hyperparameter configurations in the following way:
 ```
-./aladdin.py train tf_out \
+./clamsa.py train tf_out \
 	--basename aug-fly \
 	--clades tree.nwk \
 	--split_specification '{

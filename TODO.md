@@ -9,19 +9,19 @@
   
 # Programming tasks
   - [x] a) Implement ```--to_phylocsf``` option.
-  - [x] b) Implement `aladdin train`.
-  - [ ] c) Implement model specific training callbacks (drawing rate matrix progression for example)
-  - [ ] d) Implement `recover_model` function to load a model from its `Trial ID`
-  - [ ] e) Implement `aladdin evaluate`:
+  - [x] b) Implement `clamsa train`.
+  - [x] c) Implement model specific training callbacks (drawing rate matrix progression for example)
+  - [x] d) Implement `recover_model` function to load a model from its `Trial ID`
+  - [x] e) Implement `clamsa predict`:
     - Present statistics on the datasets
     - Evaluate learned models on specified datasets
-  - [ ] f) Aladdin runs with the same input and similar output as PhyloCSF (**drop-in replacement**).
+  - [ ] f) ClaMSA runs with the same input and similar output as PhyloCSF (**drop-in replacement**).
         This also enables the uniform evaluation of all competitors and is a check that the very same
         data is used for testing and the very same scripts for evaluation.
 
 # Other Tasks
-  - [ ] Find name soon so figures could be final, e.g.
-     - **aladdin**
+  - [x] Find name soon so figures could be final, e.g.
+     - **ClaMSA**
      - **DiscrEvo**: discriminative evolutionary model
      - **ELEMO**: *E*nd-to-end *L*earning of *E*volutionary *MO*dels 
      - some acronym from: differentiable rate matrix pruning model discriminative ML evolution tree Markov selection
