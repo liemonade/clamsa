@@ -24,7 +24,7 @@ stop_codons = {"taa", "tag", "tga"}
 
 class MSA(object):
     def __init__(self, model = None, chromosome_id = None, start_index = None, end_index = None,
-                 is_on_plus_strand = False, frame = 0, spec_ids = [], offsets = [], sequences = [], use_amino_acids = False, tuple_length = 1,
+                 is_on_plus_strand = False, frame = 0, spec_ids = [], offsets = [], sequences = [], use_amino_acids = False, tuple_length = -1,
                  fname = None):
         self.model = model # label, class, e.g. y=1 for coding, y=0 for non-coding
         self.chromosome_id = chromosome_id
@@ -65,7 +65,6 @@ class MSA(object):
 
         # update lazy loading
         self._updated_sequences = False
-
         return self._coded_sequences
 
     @property
@@ -73,7 +72,7 @@ class MSA(object):
         if self.use_amino_acids:
             alphabet = "ARNDBCEQZGHILKMFPSTWYV"
         # size of a codon in characters
-        c = 3 if self.tuple_length == 1 else self.tuple_length 
+        c = 3 if self.tuple_length == -1 else self.tuple_length 
         
         # the list of sequences that should be codon aligned
         sequences = self.sequences
@@ -92,7 +91,7 @@ class MSA(object):
         if self.use_amino_acids:
             alphabet = "ARNDBCEQZGHILKMFPSTWYV"
         ca = self.codon_aligned_sequences
-        c = 3 if self.tuple_length == 1 else self.tuple_length 
+        c = 3 if self.tuple_length == -1 else self.tuple_length 
         return ote.OnehotTupleEncoder.encode(ca, alphabet = alphabet, tuple_length = c, use_bucket_alphabet = False)
 
     @property
@@ -107,7 +106,7 @@ class MSA(object):
             length = len(self._sequences[0])
             if use_codons:
                 length = int(length / 3) # may differ from the number of codon columns
-            if not use_codons and self.tuple_length != 1:
+            if not use_codons and self.tuple_length >= 1:
                 length = int(length / self.tuple_length) 
         return length
 
@@ -354,7 +353,6 @@ def import_fasta_training_file(paths, undersample_neg_by_factor = 1., reference_
                   tuple_length = tuple_length
                  )        
         training_data.append(msa)
-
         pbar.update(fasta.tell() - bytes_read)
         bytes_read = fasta.tell()
 
@@ -746,7 +744,7 @@ def subsample_lengths(msas, use_codons, max_sequence_length = 14999, min_sequenc
         length = msa.alilen(use_codons)
         if use_codons:
             length = int(length / 3)
-        if not use_codons and msa.tuple_length != 1:
+        if not use_codons and msa.tuple_length >= 1:
             length = int(length / msa.tuple_length)
         if (length >= min_sequence_length and length <= max_sequence_length):
             msas_in_range.append(msa)
