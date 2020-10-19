@@ -65,6 +65,7 @@ class MSA(object):
 
         # update lazy loading
         self._updated_sequences = False
+
         return self._coded_sequences
 
     @property
@@ -73,7 +74,7 @@ class MSA(object):
             alphabet = "ARNDBCEQZGHILKMFPSTWYV"
         # size of a codon in characters
         c = 3 if self.tuple_length == -1 else self.tuple_length 
-        
+
         # the list of sequences that should be codon aligned
         sequences = self.sequences
 
@@ -127,7 +128,7 @@ class MSA(object):
 
     def __str__(self):
         return f"{{\n\tmodel: {self.model},\n\tchromosome_id: {self.chromosome_id},\n\tstart_index: {self.start_index},\n\tend_index: {self.end_index},\n\tis_on_plus_strand: {self.is_on_plus_strand},\n\tframe: {self.frame},\n\tspec_ids: {self.spec_ids},\n\toffsets: {self.offsets},\n\tsequences: {self.sequences},\n\tcoded_sequences: {self.coded_sequences},\n\tcodon_aligned_sequences: {self.codon_aligned_sequences}\n}}"
-    
+
 
 
 
@@ -178,17 +179,17 @@ def tuple_alignment(sequences, gap_symbols='-', frame = 0, tuple_length = 3):
 
     # pattern to support frames, i.e. skipping the first `frame_comp` tuple entries at line start
     frame_pattern = '(?:(?:^' + f'[^{gap_symbols}]'.join([f'[{gap_symbols}]*' for i in range(frame_comp+1)]) + f')|[{gap_symbols}]*)\K'
-    
+
     # generate pattern that recognizes tuples of the given length and that ignores gap symbols
     tuple_pattern = f'[{gap_symbols}]*'.join([f'([^{gap_symbols}])' for i in range(tuple_length)])
     tuple_re = re.compile(frame_pattern + tuple_pattern)
-    
+
     # for each sequence find the tuples of indices 
     T = [set(tuple(m.span(i+1)[0] for i in range(tuple_length)) for m in tuple_re.finditer(s)) for s in S]
-    
+
     # flatten T to a list and count how often each multiindex is encountered
     occ = Counter( list(itertools.chain.from_iterable([list(t) for t in T])) )
-    
+
     # find those multiindices that are in more than one sequence and sort them lexicographically
     I = sorted([i for i in occ if occ[i] > 1])
 
@@ -205,12 +206,12 @@ def tuple_alignment(sequences, gap_symbols='-', frame = 0, tuple_length = 3):
     missing_entry = gap_symbols[0] * tuple_length
     entry_func = lambda i,j: ''.join([S[i][a] for a in I[j]]) if I[j] in T[i] else missing_entry
     ta_matrix = np.vectorize(entry_func)(np.arange(len(S))[:,None],np.arange(len(I)))
-    
+
     # remove last column if it contains a stop codon (happens for single and terminal exons)
     stops_in_lastcol = set(ta_matrix[:,-1]) & stop_codons
     if stops_in_lastcol:
         ta_matrix = ta_matrix[:, 0:-1]
-        
+
     # check which rows contain an in-frame stop codon elsewhere
     stops = []
     for row in ta_matrix:
@@ -353,9 +354,9 @@ def import_fasta_training_file(paths, undersample_neg_by_factor = 1., reference_
                   tuple_length = tuple_length
                  )        
         training_data.append(msa)
+
         pbar.update(fasta.tell() - bytes_read)
         bytes_read = fasta.tell()
-
     return training_data, species
 
 def import_augustus_training_file(paths, undersample_neg_by_factor = 1., alphabet=['a', 'c', 'g', 't'],
