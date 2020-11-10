@@ -163,8 +163,9 @@ def train_models(input_dir,
             S = tf.transpose(sequences, perm = [1, 0, 2])
 
             # decode the sequence and print some columns
-            if use_amino_acids:                
-                dec = ote.OnehotTupleEncoder.decode_tfrecord_entry(S.numpy(), tuple_length = tuple_length, use_bucket_alphabet = False)
+            if use_amino_acids:
+                alphabet = "ARNDBCEQZGHILKMFPSTWYV"           
+                dec = ote.OnehotTupleEncoder.decode_tfrecord_entry(S.numpy(), alphabet = alphabet, tuple_length = tuple_length, use_bucket_alphabet = False)
             else:
                 dec = ote.OnehotTupleEncoder.decode_tfrecord_entry(S.numpy(), tuple_length = tuple_length)
             print(f'first (up to) 8 alignment columns of decoded reshaped sequence: \n{dec[:,:8]}')
