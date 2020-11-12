@@ -44,7 +44,7 @@ class MSA(object):
     @property
     def coded_sequences(self, alphabet = "acgt"):
         if self.use_amino_acids:
-            alphabet = "ARNDBCEQZGHILKMFPSTWYV"
+            alphabet = "ARNDCEQGHILKMFPSTWYV"
             
         # lazy loading
         if not self._updated_sequences:
@@ -71,7 +71,7 @@ class MSA(object):
     @property
     def codon_aligned_sequences(self, alphabet="acgt", gap_symbols='-'):
         if self.use_amino_acids:
-            alphabet = "ARNDBCEQZGHILKMFPSTWYV"
+            alphabet = "ARNDCEQGHILKMFPSTWYV"
         # size of a codon in characters
         c = 3 if self.tuple_length == -1 else self.tuple_length 
 
@@ -90,7 +90,7 @@ class MSA(object):
     @property
     def coded_codon_aligned_sequences(self, alphabet="acgt", gap_symbols = '-'):
         if self.use_amino_acids:
-            alphabet = "ARNDBCEQZGHILKMFPSTWYV"
+            alphabet = "ARNDCEQGHILKMFPSTWYV"
         ca = self.codon_aligned_sequences
         c = 3 if self.tuple_length == -1 else self.tuple_length 
         return ote.OnehotTupleEncoder.encode(ca, alphabet = alphabet, tuple_length = c, use_bucket_alphabet = False)

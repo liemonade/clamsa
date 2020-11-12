@@ -164,7 +164,7 @@ def train_models(input_dir,
 
             # decode the sequence and print some columns
             if use_amino_acids:
-                alphabet = "ARNDBCEQZGHILKMFPSTWYV"           
+                alphabet = "ARNDCEQGHILKMFPSTWYV"           
                 dec = ote.OnehotTupleEncoder.decode_tfrecord_entry(S.numpy(), alphabet = alphabet, tuple_length = tuple_length, use_bucket_alphabet = False)
             else:
                 dec = ote.OnehotTupleEncoder.decode_tfrecord_entry(S.numpy(), tuple_length = tuple_length)
