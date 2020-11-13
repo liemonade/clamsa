@@ -39,7 +39,7 @@ def train_models(input_dir,
               'val': {'name': 'val', 'wanted_models': [0, 1], 'interweave_models': True, 'repeat_models': [False, False]},
               'test': {'name': 'test', 'wanted_models': [0, 1], 'interweave_models': True, 'repeat_models': [False, False]},
           },
-          tuple_length = 1,
+          tuple_length = -1,
           use_amino_acids = False,
           used_codons = False,
           model_hyperparameters = {
@@ -74,7 +74,7 @@ def train_models(input_dir,
     
     # calculate some features from the input
     num_leaves = database_reader.num_leaves(clades)
-    tuple_length = 3 if used_codons else tuple_length if tuple_length != -1 else
+    tuple_length = 3 if used_codons else tuple_length if tuple_length > 0 else 1
     alphabet_size = 4 ** tuple_length if not use_amino_acids else 20 ** tuple_length
 
     # evaluate the split specifications
