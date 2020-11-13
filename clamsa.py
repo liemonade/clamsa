@@ -145,7 +145,7 @@ Use one of the following commands:
                 help = 'The MSAs will be exported as n-tupel-aligned sequences instead of nucleotide alignments where n is the tuple_length. This flag works only with the INPUT_TYPE fasta and not in combination with the --use_codons flag!',
                 metavar = 'TUPLE_LENGTH',
                 type = int,
-                default = 1)
+                default = -1)
 
         parser.add_argument('--ratio_neg_to_pos',
                 help = 'Undersample the negative samples (Model ID 0) or positive examples (Model ID 1) of the input file(s) to achieve a ratio of RATIO negative per positive example.',

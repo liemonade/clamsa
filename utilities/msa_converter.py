@@ -264,7 +264,7 @@ def leaf_order(path, use_alternatives=False):
             
         return matches
     
-def import_fasta_training_file(paths, undersample_neg_by_factor = 1., reference_clades = None, margin_width = 0, tuple_length = 1, use_amino_acids = False):
+def import_fasta_training_file(paths, undersample_neg_by_factor = 1., reference_clades = None, margin_width = 0, tuple_length = -1, use_amino_acids = False):
     """ Imports the training files in fasta format.
     Args:
         paths (List[str]): Location of the file(s) 
