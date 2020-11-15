@@ -295,10 +295,10 @@ Use one of the following commands:
         )
         
         parser.add_argument('--tuple_length', 
-                            help = 'The MSAs will be exported as n-tupel-aligned sequences instead of nucleotide alignments where n is the tuple_length. If n = 3, you can use the flag --use_codons instead.',
+                            help = 'The MSAs will be exported as n-tupel-aligned sequences instead of nucleotide alignments where n is the tuple_length. If n = 3, you can use the flag --used_codons instead.',
                             metavar = 'TUPLE_LENGTH',
                             type = int,
-                            default = 1)
+                            default = -1)
         
         
         parser.add_argument('--split_specifications', 
@@ -439,7 +439,7 @@ Use one of the following commands:
                             help = 'The MSAs will be exported as n-tupel-aligned sequences instead of nucleotide alignments where n is the tuple_length. If n = 3, you can use the flag --use_codons instead.',
                             metavar = 'TUPLE_LENGTH',
                             type = int,
-                            default = 1)
+                            default = -1)
                 
         parser.add_argument('--use_amino_acids', 
                             help = 'Use amino acids instead of nucleotides as alphabet.',

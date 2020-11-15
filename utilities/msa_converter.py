@@ -73,7 +73,7 @@ class MSA(object):
         if self.use_amino_acids:
             alphabet = "ARNDCEQGHILKMFPSTWYV"
         # size of a codon in characters
-        c = 3 if self.tuple_length == -1 else self.tuple_length 
+        c = 3 if self.tuple_length < 1 else self.tuple_length 
 
         # the list of sequences that should be codon aligned
         sequences = self.sequences
@@ -92,7 +92,7 @@ class MSA(object):
         if self.use_amino_acids:
             alphabet = "ARNDCEQGHILKMFPSTWYV"
         ca = self.codon_aligned_sequences
-        c = 3 if self.tuple_length == -1 else self.tuple_length 
+        c = 3 if self.tuple_length < 1 else self.tuple_length 
         return ote.OnehotTupleEncoder.encode(ca, alphabet = alphabet, tuple_length = c, use_bucket_alphabet = False)
 
     @property
@@ -1070,7 +1070,7 @@ def persist_as_tfrecord(dataset, out_dir, basename, species,
             # in order to do so we need to setup the proper format for `tf.train.SequenceExample`
 
             # Use the correct onehot encoded sequences
-            coded_sequences = msa.coded_codon_aligned_sequences if use_codons else msa.coded_sequences
+            coded_sequences = msa.coded_codon_aligned_sequences if use_codons or msa.tuple_length > 0 else msa.coded_sequences
 
             # Infer the length of the sequences
             sequence_length = coded_sequences.shape[1]
