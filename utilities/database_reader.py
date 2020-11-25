@@ -212,7 +212,7 @@ def get_datasets(folder, basename, wanted_splits, num_leaves, alphabet_size, see
     return datasets
 
 
-
+# TODO: allow "models_onehot" with depth > 2 (if model >= 2)
 def concatenate_dataset_entries(models, clade_ids, sequence_lengths, sequences):
     """
     Preprocessing function to concatenate a zero-padded batch of
@@ -230,6 +230,23 @@ def concatenate_dataset_entries(models, clade_ids, sequence_lengths, sequences):
     
     return (X,y)
 
+# TODO: This is a copie of "concatenate_dataset_entries" with "depth = 3". Delete this after unification of "oncatenate_dataset_entries()" and delete this function from "training.py"
+def concatenate_dataset_entries2(models, clade_ids, sequence_lengths, sequences):
+    """
+    Preprocessing function to concatenate a zero-padded batch of
+    variable-length sequences into a single sequence.
+    """
+
+    concat_sequences = tf.cast(
+        tf.boolean_mask(sequences, tf.sequence_mask(sequence_lengths)), 
+        dtype = tf.float64)
+
+    models_onehot = tf.one_hot(models, depth = 3)
+
+    X = (concat_sequences, tf.repeat(clade_ids, sequence_lengths, axis=0), sequence_lengths)
+    y = models_onehot
+
+    return (X,y)
 
 # TODO: These two functions behave nearly the same. Unify them!
 def concat_sequences(clade_ids, sequence_lengths, sequences):

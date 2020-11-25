@@ -134,8 +134,12 @@ def train_models(input_dir,
         # batch and reshape sequences to match the input specification of tcmc
         ds = database_reader.padded_batch(ds, batch_size, num_leaves, alphabet_size)
         ds = ds.prefetch(tf.data.experimental.AUTOTUNE)
-        ds = ds.map(database_reader.concatenate_dataset_entries, num_parallel_calls = 4)
-
+        if len(datasets) == 2:
+            ds = ds.map(database_reader.concatenate_dataset_entries, num_parallel_calls = 4)
+        elif len(datasets) == 3:
+            ds = ds.map(database_reader.concatenate_dataset_entries2, num_parallel_calls = 4)
+        else:
+            raise Exception(f'We currently support only splits of length two and three.')       
         datasets[split] = ds
 
 
