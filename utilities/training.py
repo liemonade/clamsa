@@ -139,7 +139,7 @@ def train_models(input_dir,
         elif len(datasets) == 3:
             ds = ds.map(database_reader.concatenate_dataset_entries2, num_parallel_calls = 4)
         else:
-            raise Exception(f'We currently support only splits of length two and three.')       
+            raise Exception(f'Currently we only support splits of length two and three.')       
         datasets[split] = ds
 
 
