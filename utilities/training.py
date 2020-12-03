@@ -79,11 +79,13 @@ def train_models(input_dir,
 
     # evaluate the split specifications
     splits = {'train': None, 'val': None, 'test': None}
+    num_models = 0
 
     for k in split_specifications:
         if k in splits.keys():
             try:
                 splits[k] = database_reader.DatasetSplitSpecification(**split_specifications[k])
+                num_models = len(splits[k].wanted_models) if num_models < len(splits[k].wanted_models)
             except TypeError as te:
                 raise Exception(f"Invalid split specification for '{k}': {split_specifications[k]}") from te
 
@@ -134,12 +136,12 @@ def train_models(input_dir,
         # batch and reshape sequences to match the input specification of tcmc
         ds = database_reader.padded_batch(ds, batch_size, num_leaves, alphabet_size)
         ds = ds.prefetch(tf.data.experimental.AUTOTUNE)
-        if len(datasets) == 2:
+        if num_models == 2:
             ds = ds.map(database_reader.concatenate_dataset_entries, num_parallel_calls = 4)
-        elif len(datasets) == 3:
+        elif num_models == 3:
             ds = ds.map(database_reader.concatenate_dataset_entries2, num_parallel_calls = 4)
         else:
-            raise Exception(f'Currently we only support splits of length two and three.')       
+            raise Exception(f'Currently we only support two and three models. Your number of models:{num_models}')       
         datasets[split] = ds
 
 
