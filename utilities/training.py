@@ -85,7 +85,7 @@ def train_models(input_dir,
         if k in splits.keys():
             try:
                 splits[k] = database_reader.DatasetSplitSpecification(**split_specifications[k])
-                num_models = len(splits[k].wanted_models) if num_models < len(splits[k].wanted_models)
+                num_models = len(splits[k].wanted_models) if num_models < len(splits[k].wanted_models) else num_models
             except TypeError as te:
                 raise Exception(f"Invalid split specification for '{k}': {split_specifications[k]}") from te
 
