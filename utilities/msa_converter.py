@@ -274,7 +274,7 @@ def import_fasta_training_file(paths, undersample_neg_by_factor = 1., reference_
         margin_width (int): Width of flanking region around sequences
         tuple_length (int): Length of an entry of the alphabet. e.g. 3 if you use codons or 1 if you use nucleotides as alphabet
         used_amino_acids (bool): True if you want to use amino acids instead of nucleotides as alphabet.
-    
+
     Example for input fasta file:
         *
         * >species_name_1|...|1
@@ -289,9 +289,9 @@ def import_fasta_training_file(paths, undersample_neg_by_factor = 1., reference_
         List[List[str]]: Unique species configurations either encountered or given by reference.
 
     """
-    
+
     training_data = []
-        
+
     # If clades are specified the leave species will be imported.
     species = [leaf_order(c) for c in reference_clades] if reference_clades != None else []
 
@@ -300,22 +300,20 @@ def import_fasta_training_file(paths, undersample_neg_by_factor = 1., reference_
 
     # Status bar for the reading process
     pbar = tqdm(total = total_bytes, desc = "Parsing FASTA file(s)", unit = 'b', unit_scale = True)
-    
-    fasta_files = [gzip.open(path, 'rt') if path.endswith('.gz') else open(path, 'r') for path in paths]
-    
-    for fasta in fasta_files:
-            
+
+    for path in paths:
+        fasta = gzip.open(path, 'rt') if path.endswith('.gz') else open(path, 'r')            
         bytes_read = fasta.tell()
         entries = [rec for rec in SeqIO.parse(fasta, "fasta")]
 
         # parse the species names
         spec_in_file = [e.id.split('|')[0] for e in entries]
-        
+
         # parse the model
         model = int(entries[0].id.split('|')[-1]) 
-        
+
         # compare them with the given references
-        ref_ids = [[(r,i) for r in range(len(species)) for i in range(len(species[r])) if s in species[r][i] ] for s in spec_in_file]
+        ref_ids = [[(r,i) for r in range(len(species)) for i in range(len(species[r])) if s in species[r][i]] for s in spec_in_file]
 
         # check if these are contained in exactly one reference clade
         n_refs = [len(x) for x in ref_ids]
@@ -327,7 +325,7 @@ def import_fasta_training_file(paths, undersample_neg_by_factor = 1., reference_
 
         if len(set(r for (r,i) in ref_ids)) > 1:
             continue
-                    
+
         # read the sequences and trim them if wanted        
         if not use_amino_acids:
             sequences = [str(rec.seq).lower() for rec in entries]
@@ -338,25 +336,28 @@ def import_fasta_training_file(paths, undersample_neg_by_factor = 1., reference_
         # decide whether the upcoming entry should be skipped
         skip_entry = model == 0 and random.random() > 1. / undersample_neg_by_factor
         if skip_entry:
+            fasta.close()
             continue
 
         msa = MSA(
-                  model = model,
-                  chromosome_id = None, 
-                  start_index = None,
-                  end_index = None,
-                  is_on_plus_strand = True,
-                  frame = 0,
-                  spec_ids = ref_ids,
-                  offsets = [],
-                  sequences = sequences,
-                  use_amino_acids = use_amino_acids,
-                  tuple_length = tuple_length
-                 )        
+            model = model,
+            chromosome_id = None, 
+            start_index = None,
+            end_index = None,
+            is_on_plus_strand = True,
+            frame = 0,
+            spec_ids = ref_ids,
+            offsets = [],
+            sequences = sequences,
+            use_amino_acids = use_amino_acids,
+            tuple_length = tuple_length
+        )        
         training_data.append(msa)
 
         pbar.update(fasta.tell() - bytes_read)
         bytes_read = fasta.tell()
+        fasta.close()
+
     return training_data, species
 
 def import_augustus_training_file(paths, undersample_neg_by_factor = 1., alphabet=['a', 'c', 'g', 't'],
