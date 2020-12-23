@@ -4,7 +4,7 @@ ClaMSA (**Cla**ssify **M**ultiple **S**equence **A**lignments).
 # Needed packages
 Assuming a working conda environment, the following commands will install all needed packages for clamsa
 ```console
-conda install numpy tensorflow-gpu regex biopyton
+conda install numpy tensorflow-gpu regex biopython
 conda install -c bioconda python-newick
 conda install -c conda-forge tqdm protobuf3-to-dict
 ```
