@@ -137,7 +137,7 @@ def train_models(input_dir,
         ds = database_reader.padded_batch(ds, batch_size, num_leaves, alphabet_size)
         ds = ds.prefetch(tf.data.experimental.AUTOTUNE)
         
-        # TODO: Pass the parameter "num_classes" to database_reader.concatenate_dataset_entries(). 
+        # TODO: Pass the variable "num_classes" to database_reader.concatenate_dataset_entries(). 
         #       After this delete database_reader.concatenate_dataset_entries2()
         if num_classes == 2:
             ds = ds.map(database_reader.concatenate_dataset_entries, num_parallel_calls = 4)
