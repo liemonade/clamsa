@@ -19,7 +19,7 @@ def create_model(forest,
                  dense1_dimension=16,
                  dense2_dimension=16,
                  name="clamsa_mean_log",
-                 num_models=2):
+                 num_classes=2):
     
     num_leaves = database_reader.num_leaves(forest)
     N = max(num_leaves)
@@ -47,7 +47,7 @@ def create_model(forest,
     if dense2_dimension > 0:
         dense2_layer = tf.keras.layers.Dense(dense2_dimension, kernel_initializer = "TruncatedNormal", activation = "sigmoid", name="dense2", dtype=tf.float64)
         
-    guesses_layer = tf.keras.layers.Dense(num_models, kernel_initializer = "TruncatedNormal", activation = "softmax", name = "guesses", dtype=tf.float64)
+    guesses_layer = tf.keras.layers.Dense(num_classes, kernel_initializer = "TruncatedNormal", activation = "softmax", name = "guesses", dtype=tf.float64)
     
     # assemble the computational graph
     P = tcmc_layer(sequences, clade_ids)

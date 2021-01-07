@@ -235,13 +235,13 @@ def predict_on_fasta_files(trial_ids, # OrderedDict of model ids with keys like 
                            fasta_paths,
                            use_amino_acids = False,
                            use_codons = False,
-                           tuple_length = 1,
+                           tuple_length = 0,
                            batch_size = 30,
                            trans_dict = None,
                            remove_stop_rows = False,
 ):
     # calculate model properties
-    tuple_length = 3 if use_codons else tuple_length
+    tuple_length = 3 if use_codons else tuple_length if tuple_length > 0 else 1
     alphabet_size = 4 ** tuple_length if not use_amino_acids else 20 ** tuple_length
     num_leaves = database_reader.num_leaves(clades)
     
@@ -335,13 +335,13 @@ def predict_on_tfrecord_files(trial_ids, # OrderedDict of model ids with keys li
                            tfrecord_paths,
                            use_amino_acids = False,
                            use_codons = False,
-                           tuple_length = 1,
+                           tuple_length = 0,
                            batch_size = 30,
 ):
+
     # calculate model properties
-    word_len = 3 # codon size or other tuples
-    entry_length = word_len if use_codons else tuple_length
-    alphabet_size = 4 ** entry_length if not use_amino_acids else 20 ** entry_length
+    tuple_length = 3 if use_codons else tuple_length if tuple_length > 0 else 1
+    alphabet_size = 4 ** tuple_length if not use_amino_acids else 20 ** tuple_length
     num_leaves = database_reader.num_leaves(clades)
     buffer_size = 1000
     

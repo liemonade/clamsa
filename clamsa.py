@@ -145,7 +145,7 @@ Use one of the following commands:
                 help = 'The MSAs will be exported as n-tupel-aligned sequences instead of nucleotide alignments where n is the tuple_length. This flag works only with the INPUT_TYPE fasta and not in combination with the --use_codons flag!',
                 metavar = 'TUPLE_LENGTH',
                 type = int,
-                default = -1)
+                default = 0)
 
         parser.add_argument('--ratio_neg_to_pos',
                 help = 'Undersample the negative samples (Model ID 0) or positive examples (Model ID 1) of the input file(s) to achieve a ratio of RATIO negative per positive example.',
@@ -211,6 +211,9 @@ Use one of the following commands:
                                                           reference_clades = args.clades,
                                                           margin_width = args.margin_width)
         
+        if args.use_codons == True and args.tuple_length > 0:
+            raise Exception("You can not use --use_codons and --tuple_length together. Use only one of thes flags instead.")
+
         # harmonize the length distributions if requested
         if args.subsample_lengths:
             T = mc.subsample_lengths(T, args.use_codons, relax=args.subsample_lengths_relax)
@@ -295,10 +298,10 @@ Use one of the following commands:
         )
         
         parser.add_argument('--tuple_length', 
-                            help = 'The MSAs will be exported as n-tupel-aligned sequences instead of nucleotide alignments where n is the tuple_length. If n = 3, you can use the flag --used_codons instead.',
+                            help = 'The MSAs will be exported as n-tupel-aligned sequences instead of nucleotide alignments where n is the tuple_length. If n = 3, you can use the flag --used_codons instead. You can not use --used_codons and --tuple_length together.',
                             metavar = 'TUPLE_LENGTH',
                             type = int,
-                            default = -1)
+                            default = 0)
         
         
         parser.add_argument('--split_specifications', 
@@ -382,7 +385,9 @@ Use one of the following commands:
         
         # ignore the initial args specifying the command
         args = parser.parse_args(sys.argv[2:])
-        
+
+        if args.used_codons == True and args.tuple_length > 0:
+            raise Exception("You can not use --use_codons and --tuple_length together. Use only one of thes flags instead.")
         
         from utilities.training import train_models
         
@@ -436,10 +441,10 @@ Use one of the following commands:
         )
 
         parser.add_argument('--tuple_length', 
-                            help = 'The MSAs will be exported as n-tupel-aligned sequences instead of nucleotide alignments where n is the tuple_length. If n = 3, you can use the flag --use_codons instead.',
+                            help = 'The MSAs will be exported as n-tupel-aligned sequences instead of nucleotide alignments where n is the tuple_length. If n = 3, you can use the flag --use_codons instead. You can not use --use_codons and --tuple_length together.',
                             metavar = 'TUPLE_LENGTH',
                             type = int,
-                            default = -1)
+                            default = 0)
                 
         parser.add_argument('--use_amino_acids', 
                             help = 'Use amino acids instead of nucleotides as alphabet.',
@@ -506,6 +511,9 @@ dm3.chr1 dmel''',
        
         # ignore the initial args specifying the command
         args = parser.parse_args(sys.argv[2:])
+
+        if args.use_codons == True and args.tuple_length > 0:
+            raise Exception("You can not use --use_codons and --tuple_length together. Use only one of thes flags instead.")
 
         if args.in_type == 'fasta':
             

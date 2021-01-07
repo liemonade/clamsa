@@ -39,7 +39,7 @@ def train_models(input_dir,
               'val': {'name': 'val', 'wanted_models': [0, 1], 'interweave_models': True, 'repeat_models': [False, False]},
               'test': {'name': 'test', 'wanted_models': [0, 1], 'interweave_models': True, 'repeat_models': [False, False]},
           },
-          tuple_length = -1,
+          tuple_length = 0,
           use_amino_acids = False,
           used_codons = False,
           model_hyperparameters = {
@@ -74,18 +74,18 @@ def train_models(input_dir,
     
     # calculate some features from the input
     num_leaves = database_reader.num_leaves(clades)
-    tuple_length = 3 if used_codons else tuple_length if tuple_length > 0 else 1
+    tuple_length = 3 if use_codons else tuple_length if tuple_length > 0 else 1
     alphabet_size = 4 ** tuple_length if not use_amino_acids else 20 ** tuple_length
 
     # evaluate the split specifications
     splits = {'train': None, 'val': None, 'test': None}
-    num_models = 0
+    num_classes = 0
 
     for k in split_specifications:
         if k in splits.keys():
             try:
                 splits[k] = database_reader.DatasetSplitSpecification(**split_specifications[k])
-                num_models = len(splits[k].wanted_models) if num_models < len(splits[k].wanted_models) else num_models
+                num_classes = len(splits[k].wanted_models) if num_classes < len(splits[k].wanted_models) else num_classes
             except TypeError as te:
                 raise Exception(f"Invalid split specification for '{k}': {split_specifications[k]}") from te
 
@@ -136,12 +136,15 @@ def train_models(input_dir,
         # batch and reshape sequences to match the input specification of tcmc
         ds = database_reader.padded_batch(ds, batch_size, num_leaves, alphabet_size)
         ds = ds.prefetch(tf.data.experimental.AUTOTUNE)
-        if num_models == 2:
+        
+        # TODO: Pass the parameter "num_classes" to database_reader.concatenate_dataset_entries(). 
+        #       After this delete database_reader.concatenate_dataset_entries2()
+        if num_classes == 2:
             ds = ds.map(database_reader.concatenate_dataset_entries, num_parallel_calls = 4)
-        elif num_models == 3:
+        elif num_classes == 3:
             ds = ds.map(database_reader.concatenate_dataset_entries2, num_parallel_calls = 4)
         else:
-            raise Exception(f'Currently we only support two and three models. Your number of models:{num_models}')       
+            raise Exception(f'Currently we only support two and three models. Your number of classes:{num_classes}')       
         datasets[split] = ds
 
 

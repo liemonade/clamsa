@@ -24,7 +24,7 @@ stop_codons = {"taa", "tag", "tga"}
 
 class MSA(object):
     def __init__(self, model = None, chromosome_id = None, start_index = None, end_index = None,
-                 is_on_plus_strand = False, frame = 0, spec_ids = [], offsets = [], sequences = [], use_amino_acids = False, tuple_length = -1,
+                 is_on_plus_strand = False, frame = 0, spec_ids = [], offsets = [], sequences = [], use_amino_acids = False, tuple_length = 0,
                  fname = None):
         self.model = model # label, class, e.g. y=1 for coding, y=0 for non-coding
         self.chromosome_id = chromosome_id
@@ -61,7 +61,7 @@ class MSA(object):
 
         # translate the list of sequences and convert it to a numpy matrix
         # non-alphabet characters are replaced by -1
-        self._coded_sequences = ote.OnehotTupleEncoder.encode(ca, alphabet = alphabet, tuple_length=1, use_bucket_alphabet=False)
+        self._coded_sequences = ote.OnehotTupleEncoder.encode(ca, alphabet = alphabet, tuple_length = 1, use_bucket_alphabet=False)
 
         # update lazy loading
         self._updated_sequences = False
@@ -92,7 +92,7 @@ class MSA(object):
         if self.use_amino_acids:
             alphabet = "ARNDCEQGHILKMFPSTWYV"
         ca = self.codon_aligned_sequences
-        c = 3 if self.tuple_length < 1 else self.tuple_length 
+        c = 3 if self.tuple_length < 1 else self.tuple_length
         return ote.OnehotTupleEncoder.encode(ca, alphabet = alphabet, tuple_length = c, use_bucket_alphabet = False)
 
     @property
@@ -264,7 +264,7 @@ def leaf_order(path, use_alternatives=False):
             
         return matches
     
-def import_fasta_training_file(paths, undersample_neg_by_factor = 1., reference_clades = None, margin_width = 0, tuple_length = -1, use_amino_acids = False):
+def import_fasta_training_file(paths, undersample_neg_by_factor = 1., reference_clades = None, margin_width = 0, tuple_length = 0, use_amino_acids = False):
     """ Imports the training files in fasta format.
     Args:
         paths (List[str]): Location of the file(s) 
@@ -929,7 +929,7 @@ def write_msa(msa, species, tfwriter, use_codons=True, verbose=False):
     """
     
 
-    # Use the correct onehot encded sequences
+    # Use the correct onehot encoded sequences
     coded_sequences = msa.coded_codon_aligned_sequences if use_codons else msa.coded_sequences
     
     # Infer the length of the sequences
@@ -1067,15 +1067,15 @@ def persist_as_tfrecord(dataset, out_dir, basename, species,
             tfwriter = tfwriters[s][m]
             n_written[s][m] += 1
 
-            #Write a coded MSA (either as sequence of nucleotides or codons) as an entry into a  Tensorflow-Records file.
+            # Write a coded MSA (either as sequence of nucleotides or codons) as an entry into a  Tensorflow-Records file.
             # in order to do so we need to setup the proper format for `tf.train.SequenceExample`
 
             # Use the correct onehot encoded sequences
-            coded_sequences = msa.coded_codon_aligned_sequences if use_codons or msa.tuple_length > 0 else msa.coded_sequences
+            coded_sequences = msa.coded_codon_aligned_sequences if use_codons or msa.tuple_length > 1 else msa.coded_sequences
 
             # Infer the length of the sequences
             sequence_length = coded_sequences.shape[1]
-            
+
             if sequence_length == 0:
                 continue
 

@@ -230,7 +230,7 @@ def concatenate_dataset_entries(models, clade_ids, sequence_lengths, sequences):
     
     return (X,y)
 
-# TODO: This is a copie of "concatenate_dataset_entries" with "depth = 3". Delete this after unification of "concatenate_dataset_entries()" and delete this function from "training.py"
+# TODO: This is a copy of "concatenate_dataset_entries" with "depth = 3". Delete this after unification of "concatenate_dataset_entries()" and delete this function from "training.py"
 def concatenate_dataset_entries2(models, clade_ids, sequence_lengths, sequences):
     """
     Preprocessing function to concatenate a zero-padded batch of
