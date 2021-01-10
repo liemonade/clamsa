@@ -196,7 +196,7 @@ def parse_fasta_file(fasta_path, clades, margin_width=0):
         sequences = sequences
     )
     # Use the correct onehot encoded sequences
-    coded_sequences = msa.coded_codon_aligned_sequences if use_codons else msa.coded_sequences
+    coded_sequences = msa.coded_codon_aligned_sequences if msa.use_codons else msa.coded_sequences
     
     # Infer the length of the sequences
     sequence_length = len(coded_sequences[1])  
@@ -235,13 +235,13 @@ def predict_on_fasta_files(trial_ids, # OrderedDict of model ids with keys like 
                            fasta_paths,
                            use_amino_acids = False,
                            use_codons = False,
-                           tuple_length = 0,
+                           tuple_length = 1,
                            batch_size = 30,
                            trans_dict = None,
                            remove_stop_rows = False,
 ):
     # calculate model properties
-    tuple_length = 3 if use_codons else tuple_length if tuple_length > 0 else 1
+    tuple_length = 3 if use_codons else tuple_length
     alphabet_size = 4 ** tuple_length if not use_amino_acids else 20 ** tuple_length
     num_leaves = database_reader.num_leaves(clades)
     
@@ -335,12 +335,12 @@ def predict_on_tfrecord_files(trial_ids, # OrderedDict of model ids with keys li
                            tfrecord_paths,
                            use_amino_acids = False,
                            use_codons = False,
-                           tuple_length = 0,
+                           tuple_length = 1,
                            batch_size = 30,
 ):
 
     # calculate model properties
-    tuple_length = 3 if use_codons else tuple_length if tuple_length > 0 else 1
+    tuple_length = 3 if use_codons else tuple_length
     alphabet_size = 4 ** tuple_length if not use_amino_acids else 20 ** tuple_length
     num_leaves = database_reader.num_leaves(clades)
     buffer_size = 1000
