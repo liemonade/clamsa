@@ -1079,7 +1079,7 @@ def persist_as_tfrecord(dataset, out_dir, basename, species,
 
             # Use the correct onehot encoded sequences
             coded_sequences = msa.coded_codon_aligned_sequences if msa.use_codons or msa.tuple_length > 1 else msa.coded_sequences
-            print(coded_sequences.shape)
+
             # Infer the length of the sequences
             sequence_length = coded_sequences.shape[1]
 
