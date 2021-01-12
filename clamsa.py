@@ -554,14 +554,14 @@ dm3.chr1 dmel''',
             import utilities.model_evaluation as me
             
             preds = me.predict_on_tfrecord_files(trial_ids=args.model_ids,
-                                              saved_weights_dir=args.saved_weights_basedir,
-                                              log_dir=args.log_basedir,
-                                              clades=args.clades,
-                                              tfrecord_paths = args.input,
-                                              use_amino_acids = args.use_amino_acids,
-                                              use_codons = args.use_codons,
-                                              tuple_length = args.tuple_length,
-                                              batch_size = args.batch_size
+                                                 saved_weights_dir=args.saved_weights_basedir,
+                                                 log_dir=args.log_basedir,
+                                                 clades=args.clades,
+                                                 tfrecord_paths = args.input,
+                                                 use_amino_acids = args.use_amino_acids,
+                                                 use_codons = args.use_codons,
+                                                 tuple_length = args.tuple_length,
+                                                 batch_size = args.batch_size
             )
 
         # construct a dataframe from the predictions

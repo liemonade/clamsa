@@ -196,7 +196,7 @@ def parse_fasta_file(fasta_path, clades, margin_width=0):
         sequences = sequences
     )
     # Use the correct onehot encoded sequences
-    coded_sequences = msa.coded_codon_aligned_sequences if msa.use_codons else msa.coded_sequences
+    coded_sequences = msa.coded_codon_aligned_sequences if msa.use_codons or msa.tuple_length > 1 else msa.coded_sequences
     
     # Infer the length of the sequences
     sequence_length = len(coded_sequences[1])  
@@ -329,14 +329,14 @@ def predict_on_fasta_files(trial_ids, # OrderedDict of model ids with keys like 
 
 
 def predict_on_tfrecord_files(trial_ids, # OrderedDict of model ids with keys like 'tcmc_rnn'
-                           saved_weights_dir,
-                           log_dir,
-                           clades,
-                           tfrecord_paths,
-                           use_amino_acids = False,
-                           use_codons = False,
-                           tuple_length = 1,
-                           batch_size = 30,
+                              saved_weights_dir,
+                              log_dir,
+                              clades,
+                              tfrecord_paths,
+                              use_amino_acids = False,
+                              use_codons = False,
+                              tuple_length = 1,
+                              batch_size = 30,
 ):
 
     # calculate model properties
