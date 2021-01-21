@@ -138,7 +138,7 @@ def train_models(input_dir,
         ds = ds.prefetch(tf.data.experimental.AUTOTUNE)
         
         # TODO: Pass the variable "num_classes" to database_reader.concatenate_dataset_entries(). 
-        #       For this, we must add "num_classes" into the dataset stucture, because the input 
+        #       For this, we must add "num_classes" into the dataset structure, because the input 
         #       signature of `map_func`(parameter from ds.map(), here: concatenate_dataset_entries()) 
         #       is determined by the structure of each element in the datasets.
         #       See: https://github.com/tensorflow/tensorflow/blob/v2.4.0/tensorflow/python/data/ops/dataset_ops.py#L1667-L1812
