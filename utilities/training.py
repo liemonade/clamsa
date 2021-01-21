@@ -138,13 +138,16 @@ def train_models(input_dir,
         ds = ds.prefetch(tf.data.experimental.AUTOTUNE)
         
         # TODO: Pass the variable "num_classes" to database_reader.concatenate_dataset_entries(). 
-        #       After this delete database_reader.concatenate_dataset_entries2()
+        #       For this, we must add "num_classes" into the dataset stucture, because the input 
+        #       signature of `map_func`(parameter from ds.map(), here: concatenate_dataset_entries()) 
+        #       is determined by the structure of each element in the datasets.
+        #       See: https://github.com/tensorflow/tensorflow/blob/v2.4.0/tensorflow/python/data/ops/dataset_ops.py#L1667-L1812
         if num_classes == 2:
             ds = ds.map(database_reader.concatenate_dataset_entries, num_parallel_calls = 4)
         elif num_classes == 3:
             ds = ds.map(database_reader.concatenate_dataset_entries2, num_parallel_calls = 4)
         else:
-            raise Exception(f'Currently we only support two and three models. Your number of classes:{num_classes}')       
+            raise Exception(f'Currently we only support two and three output classes. Your number of classes:{num_classes}')       
         datasets[split] = ds
 
 
