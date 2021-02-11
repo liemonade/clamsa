@@ -19,7 +19,7 @@ def create_model(forest,
                  sequence_length_as_feature=False,
                  dense1_dimension=16,
                  dense2_dimension=16,
-                 name="tcmc_mean_log",
+                 name="clamsa_mean_log",
                  num_classes=2):
 
     num_leaves = database_reader.num_leaves(forest)
@@ -38,7 +38,6 @@ def create_model(forest,
         alphabet_layer = None
 
     tcmc_layer = TCMCProbability((tcmc_models,), forest, name="P_sequence_columns")
-
     mean_log_layer = SequenceLogLikelihood(name='mean_log_P', dtype=tf.float64)
  
     sl_concat_layer = None
