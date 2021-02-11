@@ -503,12 +503,19 @@ dm3.chr1 dmel''',
                             type=file_exists,
                             nargs='+',
         )
-       
+
+        parser.add_argument('--num_classes',
+                            help='Number of predicted classes.',
+                            metavar='NUM_CLASSES',
+                            type=int,
+                            default=2,
+        )
+
         # ignore the initial args specifying the command
         args = parser.parse_args(sys.argv[2:])
 
         if args.in_type == 'fasta':
-            
+
             #import on demand (importing tf is costly)
             import utilities.model_evaluation as me
 
@@ -546,6 +553,7 @@ dm3.chr1 dmel''',
                                               batch_size = args.batch_size,
                                               trans_dict = trans_dict,
                                               remove_stop_rows = args.remove_stop_rows,
+                                              num_classes = args.num_classes
             )
 
         if args.in_type == 'tfrecord':
@@ -561,7 +569,8 @@ dm3.chr1 dmel''',
                                                  use_amino_acids = args.use_amino_acids,
                                                  use_codons = args.use_codons,
                                                  tuple_length = args.tuple_length,
-                                                 batch_size = args.batch_size
+                                                 batch_size = args.batch_size,
+                                                 num_classes = args.num_classes
             )
 
         # construct a dataframe from the predictions

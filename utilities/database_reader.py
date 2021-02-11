@@ -213,6 +213,12 @@ def get_datasets(folder, basename, wanted_splits, num_leaves, alphabet_size, see
 
 
 # TODO: allow "models_onehot" with depth > 2 (if model >= 2)
+# TODO: Pass the variable "depth" to database_reader.concatenate_dataset_entries(). 
+#       For this, we must add "depth" into the dataset structure, because the input 
+#       signature of `map_func`(parameter from ds.map(), here: concatenate_dataset_entries()) 
+#       is determined by the structure of each element in the datasets.
+#       See: https://github.com/tensorflow/tensorflow/blob/v2.4.0/tensorflow/python/data/ops/dataset_ops.py #L1667-L1812
+#       Other possible solution: Calculate the onehot models somewhere else and not in concatenate_dataset_entries() (see concat_sequences() below).
 def concatenate_dataset_entries(models, clade_ids, sequence_lengths, sequences):
     """
     Preprocessing function to concatenate a zero-padded batch of

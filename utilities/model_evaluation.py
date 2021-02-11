@@ -239,6 +239,7 @@ def predict_on_fasta_files(trial_ids, # OrderedDict of model ids with keys like 
                            batch_size = 30,
                            trans_dict = None,
                            remove_stop_rows = False,
+                           num_classes = 2
 ):
     # calculate model properties
     tuple_length = 3 if use_codons else tuple_length
@@ -298,7 +299,15 @@ def predict_on_fasta_files(trial_ids, # OrderedDict of model ids with keys like 
                                    ))
 
     dataset = dataset.prefetch(tf.data.experimental.AUTOTUNE)
-    dataset = dataset.map(database_reader.concat_sequences, num_parallel_calls = 4)
+    #dataset = dataset.map(database_reader.concatenate_dataset_entries, num_parallel_calls = 4)
+        
+    # TODO: Pass the variable "num_classes" to database_reader.concatenate_dataset_entries().
+    if num_classes == 2:
+        dataset = dataset.map(database_reader.concatenate_dataset_entries, num_parallel_calls = 4)
+    elif num_classes == 3:
+        dataset = dataset.map(database_reader.concatenate_dataset_entries2, num_parallel_calls = 4)
+    else:
+        raise Exception(f'Currently we only support two and three output classes. Your number of classes:{num_classes}')
 
 
 
@@ -337,6 +346,7 @@ def predict_on_tfrecord_files(trial_ids, # OrderedDict of model ids with keys li
                               use_codons = False,
                               tuple_length = 1,
                               batch_size = 30,
+                              num_classes = 2
 ):
 
     # calculate model properties
@@ -386,7 +396,16 @@ def predict_on_tfrecord_files(trial_ids, # OrderedDict of model ids with keys li
                                        ))
 
         dataset = dataset.prefetch(tf.data.experimental.AUTOTUNE)
-        dataset = dataset.map(database_reader.concatenate_dataset_entries, num_parallel_calls = 4)
+        #dataset = dataset.map(database_reader.concatenate_dataset_entries, num_parallel_calls = 4)
+        
+        # TODO: Pass the variable "num_classes" to database_reader.concatenate_dataset_entries().
+        if num_classes == 2:
+            dataset = dataset.map(database_reader.concatenate_dataset_entries, num_parallel_calls = 4)
+        elif num_classes == 3:
+            dataset = dataset.map(database_reader.concatenate_dataset_entries2, num_parallel_calls = 4)
+        else:
+            raise Exception(f'Currently we only support two and three output classes. Your number of classes:{num_classes}')
+
         datasets[p] = dataset
 
 
@@ -395,7 +414,7 @@ def predict_on_tfrecord_files(trial_ids, # OrderedDict of model ids with keys li
     bs_layer = BatchedSequences(feature_size = max(num_leaves), dtype=tf.float64, name="batched_sequences")    
     def sequence_data(X, y):
         sequences, clade_ids, sequence_lengths = X
-        S = tf.transpose(sequences, perm = [1, 0, 2])
+        #S = tf.transpose(sequences, perm = [1, 0, 2])
         sl = tf.expand_dims(sequence_lengths, axis=-1)
 
         nontrivial_entries = tf.logical_not(tf.reduce_all(sequences == tf.ones(64, dtype=tf.float64), axis=-1))
