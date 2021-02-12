@@ -32,11 +32,7 @@ def create_model(forest,
     sequence_lengths = tf.keras.Input(shape = (1,), name = "sequence_lengths", dtype = tf.int64) # keras inputs doesn't allow shape [None]
 
     # define the layers
-    if new_alphabet_size > 0:
-        alphabet_layer = ResizeAlphabet(alphabet_size, new_alphabet_size, name='resize_alphabet', dtype=tf.float64)
-    else:
-        alphabet_layer = None
-
+    encoding_layer = Encoding(alphabet_size, new_alphabet_size, name='encoded_sequences', dtype=tf.float64) if new_alphabet_size > 0 else None
     tcmc_layer = TCMCProbability((tcmc_models,), forest, name="P_sequence_columns")
     mean_log_layer = SequenceLogLikelihood(name='mean_log_P', dtype=tf.float64)
  
@@ -57,14 +53,11 @@ def create_model(forest,
 
     # assemble the computational graph
     if new_alphabet_size > 0:
-        resized_sequences = alphabet_layer(sequences)
-        P = tcmc_layer(resized_sequences, clade_ids)
-        mean_log_P = mean_log_layer([P, sequence_lengths])
-        X = mean_log_P
-    else:
-        P = tcmc_layer(sequences, clade_ids)
-        mean_log_P = mean_log_layer([P, sequence_lengths])
-        X = mean_log_P
+        sequences = encoding_layer(sequences)
+
+    P = tcmc_layer(sequences, clade_ids)
+    mean_log_P = mean_log_layer([P, sequence_lengths])
+    X = mean_log_P
 
     if sequence_length_as_feature:
         log_sl_layer = tf.keras.layers.Lambda(tf.math.log, name="log_sequence_length", dtype=tf.float64)
@@ -130,12 +123,9 @@ class SequenceLogLikelihood(tf.keras.layers.Layer):
     def from_config(cls, config):
         return cls(**config)
 
-class ResizeAlphabet(tf.keras.layers.Layer):
-    """Resize the alphabet"""
-    def __init__(self,
-                 old_size,
-                 new_size,
-                 **kwargs):
+class Encoding(tf.keras.layers.Layer):
+    """Encoding the alphabet"""
+    def __init__(self, old_size, new_size, **kwargs):
         self.old_size = old_size
         self.new_size = new_size
         super(ResizeAlphabet, self).__init__(**kwargs)
