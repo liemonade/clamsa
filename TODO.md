@@ -25,7 +25,7 @@
      - **DiscrEvo**: discriminative evolutionary model
      - **ELEMO**: *E*nd-to-end *L*earning of *E*volutionary *MO*dels 
      - some acronym from: differentiable rate matrix pruning model discriminative ML evolution tree Markov selection
-  - [ ] obtain **biological results**  
+  - [x] obtain **biological results**  
         With modest effort, we could screen the negatively labeled MSAs that are most confidently predicted as positive for candidates of missing genes.
         Finding an unannotated human gene is a long shot, but I could search genome-wide with a non-human vertebrate as reference.
         This could lead to a figure of one - hopefully clear - MSA example of a yet missing gene and some statistics to estimate missing protein-coding genes.
