@@ -32,7 +32,7 @@ def create_model(forest,
     sequence_lengths = tf.keras.Input(shape = (1,), name = "sequence_lengths", dtype = tf.int64) # keras inputs doesn't allow shape [None]
 
     # define the layers
-    encoding_layer = Encoding(alphabet_size, new_alphabet_size, name='encoded_sequences', dtype=tf.float64) if new_alphabet_size > 0 else None
+    encoding_layer = Encode(alphabet_size, new_alphabet_size, name='encoded_sequences', dtype=tf.float64) if new_alphabet_size > 0 else None
     tcmc_layer = TCMCProbability((tcmc_models,), forest, name="P_sequence_columns")
     mean_log_layer = SequenceLogLikelihood(name='mean_log_P', dtype=tf.float64)
  
@@ -123,7 +123,7 @@ class SequenceLogLikelihood(tf.keras.layers.Layer):
     def from_config(cls, config):
         return cls(**config)
 
-class Encoding(tf.keras.layers.Layer):
+class Encode(tf.keras.layers.Layer):
     """Encoding the alphabet"""
     def __init__(self, old_size, new_size, **kwargs):
         self.old_size = old_size
