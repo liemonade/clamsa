@@ -71,7 +71,7 @@ def train_models(input_dir,
     """
     TODO: Write Docstring
     """
-    
+    print ("type of clades:", type(clades))
     # calculate some features from the input
     num_leaves = database_reader.num_leaves(clades)
     tuple_length = 3 if used_codons else tuple_length
@@ -102,26 +102,28 @@ def train_models(input_dir,
     
     merge_behaviour = merge_behaviour if len(merge_behaviour) > 1 else merge_behaviour[0]
     
-    weights = len(basenames) * [1/len(basenames)]
+    weights = len(basenames) * [1/len(basenames)] # evenly is default
     
+    if isinstance(merge_behaviour, str):
+        if merge_behaviour != "evenly":
+            print(f'Unknown merge beheaviour, merging evenly.')
+    else:
+        if len(merge_behaviour) > 1:
+            # check whether the custom weights are correct        
+            # expecting a list of weights
+            try:
+                merge_behaviour = [float(w) for w in merge_behaviour]
+            except ValueError:
+                print(f'Expected a list of floats in merge_behaviour. However merge_behaviour = {merge_behaviour}')
+                print(f'Will use even merge_behaviour = {weights} instead.')
+                
+            if len(merge_behaviour) == len(basenames) \
+               and all([isinstance(x, float) for x in merge_behaviour]) \
+               and all([x >= 0 for x in merge_behaviour]) \
+               and sum(merge_behaviour) == 1:
+                weights = merge_behaviour
 
-    # check whether the costum weights are correct
-    if len(merge_behaviour) > 1:
-        
-        # expecting a list of weights
-        try:
-            merge_behaviour = [float(w) for w in merge_behaviour]
-        except ValueError:
-            print(f'Expected a list of floats in merge_behaviour. However merge_behaviour = {merge_behaviour}')
-            print(f'Will use even merge_behaviour = {weights} instead.')
-            
-        if len(merge_behaviour) == len(basenames) \
-            and all([isinstance(x, float) for x in merge_behaviour]) \
-            and all([x >= 0 for x in merge_behaviour]) \
-            and sum(merge_behaviour) == 1:
-            weights = merge_behaviour
-    
-    
+
     merge_ds = tf.data.experimental.sample_from_datasets
     datasets = {s: merge_ds([unmerged_datasets[b][s] for b in basenames], weights) for s in splits.keys()}
         
