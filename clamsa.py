@@ -537,10 +537,10 @@ dm3.chr1 dmel''',
                             trans_dict[fasta_name] = taxon_id
 
                             
-            preds = me.predict_on_fasta_files(trial_ids=args.model_ids,
-                                              saved_weights_dir=args.saved_weights_basedir,
-                                              log_dir=args.log_basedir,
-                                              clades=args.clades,
+            preds = me.predict_on_fasta_files(trial_ids = args.model_ids,
+                                              saved_weights_dir = args.saved_weights_basedir,
+                                              log_dir = args.log_basedir,
+                                              clades = args.clades,
                                               fasta_paths = fasta_paths,
                                               use_amino_acids = args.use_amino_acids,
                                               use_codons = args.use_codons,
