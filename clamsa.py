@@ -290,9 +290,11 @@ Use one of the following commands:
         
         parser.add_argument('--merge_behaviour',
                             metavar='MERGE_BEHAVIOUR',
-                            help='In which ratio the respective splits for each basename shall be merged. The possible modes are: "evenly", "columns", "sequences", "w_1 ... w_n". Where "evenly" means all basenames have the same weight. In the mode "columns" the total number of alignment columns for each basename is counted and the weights are adjusted accordingly. In mode "sequences" the total number of sequences for each basename is counted and the weights are adjusted accordingly. Lastly a set of costum weights can be given directly. Default is "evenly".',
+                            help='In which ratio the respective splits for each basename shall be merged. The possible modes are: "evenly", "w_1 ... w_n". Where "evenly" means all basenames have the same weight. A set of costum weights can be given directly. Default is "evenly".',
                             nargs='+',
-        )
+        ) 
+        # possible extensions:  "columns", "sequences"
+        # In the mode "columns" the total number of alignment columns for each basename is counted and the weights are adjusted accordingly. In mode "sequences" the total number of sequences for each basename is counted and the weights are adjusted accordingly.
         
         parser.add_argument('--tuple_length', 
                             help = 'The MSAs will be exported as n-tupel-aligned sequences instead of nucleotide alignments where n is the tuple_length. If n = 3, you can use the flag --use_codons instead.',
