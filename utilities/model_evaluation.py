@@ -196,7 +196,7 @@ def parse_fasta_file(fasta_path, clades, margin_width=0):
         sequences = sequences
     )
     # Use the correct onehot encoded sequences
-    coded_sequences = msa.coded_codon_aligned_sequences if use_codons else msa.coded_sequences
+    coded_sequences = msa.coded_codon_aligned_sequences if msa.use_codons or msa.tuple_length > 1 else msa.coded_sequences
     
     # Infer the length of the sequences
     sequence_length = len(coded_sequences[1])  
@@ -239,6 +239,7 @@ def predict_on_fasta_files(trial_ids, # OrderedDict of model ids with keys like 
                            batch_size = 30,
                            trans_dict = None,
                            remove_stop_rows = False,
+                           num_classes = 2
 ):
     # calculate model properties
     tuple_length = 3 if use_codons else tuple_length
@@ -298,7 +299,15 @@ def predict_on_fasta_files(trial_ids, # OrderedDict of model ids with keys like 
                                    ))
 
     dataset = dataset.prefetch(tf.data.experimental.AUTOTUNE)
-    dataset = dataset.map(database_reader.concat_sequences, num_parallel_calls = 4)
+    #dataset = dataset.map(database_reader.concatenate_dataset_entries, num_parallel_calls = 4)
+        
+    # TODO: Pass the variable "num_classes" to database_reader.concatenate_dataset_entries().
+    if num_classes == 2:
+        dataset = dataset.map(database_reader.concatenate_dataset_entries, num_parallel_calls = 4)
+    elif num_classes == 3:
+        dataset = dataset.map(database_reader.concatenate_dataset_entries2, num_parallel_calls = 4)
+    else:
+        raise Exception(f'Currently we only support two and three output classes. Your number of classes:{num_classes}')
 
 
 
@@ -329,19 +338,20 @@ def predict_on_fasta_files(trial_ids, # OrderedDict of model ids with keys like 
 
 
 def predict_on_tfrecord_files(trial_ids, # OrderedDict of model ids with keys like 'tcmc_rnn'
-                           saved_weights_dir,
-                           log_dir,
-                           clades,
-                           tfrecord_paths,
-                           use_amino_acids = False,
-                           use_codons = False,
-                           tuple_length = 1,
-                           batch_size = 30,
+                              saved_weights_dir,
+                              log_dir,
+                              clades,
+                              tfrecord_paths,
+                              use_amino_acids = False,
+                              use_codons = False,
+                              tuple_length = 1,
+                              batch_size = 30,
+                              num_classes = 2
 ):
+
     # calculate model properties
-    word_len = 3 # codon size or other tuples
-    entry_length = word_len if use_codons else tuple_length
-    alphabet_size = 4 ** entry_length if not use_amino_acids else 20 ** entry_length
+    tuple_length = 3 if use_codons else tuple_length
+    alphabet_size = 4 ** tuple_length if not use_amino_acids else 20 ** tuple_length
     num_leaves = database_reader.num_leaves(clades)
     buffer_size = 1000
     
@@ -386,7 +396,16 @@ def predict_on_tfrecord_files(trial_ids, # OrderedDict of model ids with keys li
                                        ))
 
         dataset = dataset.prefetch(tf.data.experimental.AUTOTUNE)
-        dataset = dataset.map(database_reader.concatenate_dataset_entries, num_parallel_calls = 4)
+        #dataset = dataset.map(database_reader.concatenate_dataset_entries, num_parallel_calls = 4)
+        
+        # TODO: Pass the variable "num_classes" to database_reader.concatenate_dataset_entries().
+        if num_classes == 2:
+            dataset = dataset.map(database_reader.concatenate_dataset_entries, num_parallel_calls = 4)
+        elif num_classes == 3:
+            dataset = dataset.map(database_reader.concatenate_dataset_entries2, num_parallel_calls = 4)
+        else:
+            raise Exception(f'Currently we only support two and three output classes. Your number of classes:{num_classes}')
+
         datasets[p] = dataset
 
 
@@ -395,7 +414,7 @@ def predict_on_tfrecord_files(trial_ids, # OrderedDict of model ids with keys li
     bs_layer = BatchedSequences(feature_size = max(num_leaves), dtype=tf.float64, name="batched_sequences")    
     def sequence_data(X, y):
         sequences, clade_ids, sequence_lengths = X
-        S = tf.transpose(sequences, perm = [1, 0, 2])
+        #S = tf.transpose(sequences, perm = [1, 0, 2])
         sl = tf.expand_dims(sequence_lengths, axis=-1)
 
         nontrivial_entries = tf.logical_not(tf.reduce_all(sequences == tf.ones(64, dtype=tf.float64), axis=-1))
@@ -412,16 +431,16 @@ def predict_on_tfrecord_files(trial_ids, # OrderedDict of model ids with keys li
     # predict on each model
     preds = collections.OrderedDict()
     num_seq = {}
-    
+
     # wanted sequence meta data
     aligned_sequences = None
     sequence_lengths = None
     Y = None
 
     for p in tfrecord_paths:
-        
+
         dataset = datasets[p]
-        
+
         # evaluate the models
         for n in models:
             model = models[n]
@@ -432,14 +451,14 @@ def predict_on_tfrecord_files(trial_ids, # OrderedDict of model ids with keys li
             except UnboundLocalError:
                 pass # happens in tf 2.3 when there is no valid MSA
             del model
-            
+
         # extract the meta data
         for num_ali, sl, y in dataset.map(sequence_data).as_numpy_iterator():
             aligned_sequences = np.concatenate((aligned_sequences, num_ali)) if not aligned_sequences is None else num_ali
             sequence_lengths = np.concatenate((sequence_lengths, sl)) if not sequence_lengths is None else sl
             Y = np.concatenate((Y, y)) if not Y is None else y
-                    
-    
+
+
     filenames = [[p for _ in range(num_seq[p])] for p in tfrecord_paths]
     indices = [list(range(num_seq[p])) for p in tfrecord_paths]
     preds['file'] = list(itertools.chain.from_iterable(filenames))
@@ -448,13 +467,13 @@ def predict_on_tfrecord_files(trial_ids, # OrderedDict of model ids with keys li
     preds['sequence_length'] = sequence_lengths
     preds['y'] = Y
 
-    
-    
+
+
     preds.move_to_end('aligned_sequences', last = False)
     preds.move_to_end('sequence_length', last = False)
     preds.move_to_end('y', last = False)
     preds.move_to_end('index', last = False)
     preds.move_to_end('file', last = False) 
-    
-    
+
+
     return preds
