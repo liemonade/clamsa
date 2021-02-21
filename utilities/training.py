@@ -79,11 +79,13 @@ def train_models(input_dir,
 
     # evaluate the split specifications
     splits = {'train': None, 'val': None, 'test': None}
+    num_classes = 0
 
     for k in split_specifications:
         if k in splits.keys():
             try:
                 splits[k] = database_reader.DatasetSplitSpecification(**split_specifications[k])
+                num_classes = len(splits[k].wanted_models) if num_classes < len(splits[k].wanted_models) else num_classes
             except TypeError as te:
                 raise Exception(f"Invalid split specification for '{k}': {split_specifications[k]}") from te
 
@@ -136,11 +138,17 @@ def train_models(input_dir,
         # batch and reshape sequences to match the input specification of tcmc
         ds = database_reader.padded_batch(ds, batch_size, num_leaves, alphabet_size)
         ds = ds.prefetch(tf.data.experimental.AUTOTUNE)
-        ds = ds.map(database_reader.concatenate_dataset_entries, num_parallel_calls = 4)
+        #ds = ds.map(database_reader.concatenate_dataset_entries, num_parallel_calls = 4)
 
+        # TODO: Pass the variable "num_classes" to database_reader.concatenate_dataset_entries().
+        if num_classes == 2:
+            ds = ds.map(database_reader.concatenate_dataset_entries, num_parallel_calls = 4)
+        elif num_classes == 3:
+            ds = ds.map(database_reader.concatenate_dataset_entries2, num_parallel_calls = 4)
+        else:
+            raise Exception(f'Currently we only support two and three output classes. Your number of classes:{num_classes}')
+       
         datasets[split] = ds
-
-
 
     if verbose:
         print(f'Example batch of the "train" dataset:\n')
@@ -166,7 +174,7 @@ def train_models(input_dir,
 
             # decode the sequence and print some columns
             if use_amino_acids:
-                alphabet = "ARNDBCEQZGHILKMFPSTWYV"           
+                alphabet = "ARNDCEQGHILKMFPSTWYV"           
                 dec = ote.OnehotTupleEncoder.decode_tfrecord_entry(S.numpy(), alphabet = alphabet, tuple_length = tuple_length, use_bucket_alphabet = False)
             else:
                 dec = ote.OnehotTupleEncoder.decode_tfrecord_entry(S.numpy(), tuple_length = tuple_length)
