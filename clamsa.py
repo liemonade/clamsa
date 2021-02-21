@@ -364,11 +364,12 @@ Use one of the following commands:
         
         
         parser.add_argument('--log_basedir',
-                            metavar='LOG_BASEDIR',
-                            help='Folder in which the Tensorboard training logs should be stored. Defaults to "./logs/"',
+                            metavar = 'LOG_BASEDIR',
+                            help = 'Folder in which the Tensorboard training logs should be stored. Defaults to "./logs/"',
+                            default = './logs/',
                             type = folder_is_writable_if_exists,
         )
-        
+
         parser.add_argument('--saved_weights_basedir',
                             metavar='SAVED_WEIGHTS_BASEDIR',
                             help='Folder in which the weights for the best performing models should be stored. Defaults "./saved_weights/"',
@@ -469,6 +470,7 @@ Use one of the following commands:
         parser.add_argument('--log_basedir',
                             metavar='LOG_BASEDIR',
                             help='Folder in which the Tensorboard training logs are stored. Defaults to "./logs/"',
+                            default = './logs/',
                             type = folder_is_writable_if_exists,
         )
         

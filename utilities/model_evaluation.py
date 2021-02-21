@@ -55,8 +55,6 @@ def get_hyperparameter(path):
                 
                 return hp
     return False
-            
-    
 
 
 def get_model_information(trial_id, log_dir):
@@ -278,6 +276,10 @@ def predict_on_fasta_files(trial_ids, # OrderedDict of model ids with keys like 
         models[n].compile(optimizer = optimizer,
                           loss = loss,
                           metrics = [accuracy_metric, auroc_metric])
+        # export TCMC parameters, make this an option
+        evo_layer = models[n].get_layer(index=2)
+        evo_layer.export_matrices("rates-Q.txt", "rates-pi.txt")
+
 
 
     # construct a `tf.data.Dataset` from the fasta files    
