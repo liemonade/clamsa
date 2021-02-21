@@ -199,18 +199,21 @@ Use one of the following commands:
                                                        reference_clades = args.clades,
                                                        margin_width = args.margin_width,
                                                        tuple_length = args.tuple_length,
-                                                       use_amino_acids = args.use_amino_acids)
+                                                       use_amino_acids = args.use_amino_acids,
+                                                       use_codons = args.use_codons)
 
         if args.in_type == 'augustus':
             T, species = mc.import_augustus_training_file(args.input_files,
                                                           reference_clades = args.clades,
-                                                          margin_width = args.margin_width)
+                                                          margin_width = args.margin_width,
+                                                          use_codons = args.use_codons)
 
         if args.in_type == 'phylocsf':
             T, species = mc.import_phylocsf_training_file(args.input_files,
                                                           reference_clades = args.clades,
-                                                          margin_width = args.margin_width)
-        
+                                                          margin_width = args.margin_width,
+                                                          use_codons = args.use_codons)
+
         # harmonize the length distributions if requested
         if args.subsample_lengths:
             T = mc.subsample_lengths(T, args.use_codons, relax=args.subsample_lengths_relax)
@@ -232,7 +235,6 @@ Use one of the following commands:
             = mc.preprocess_export(T, species,
                                    args.splits,
                                    args.split_models,
-                                   args.use_codons, 
                                    args.verbose)
             
             # store MSAs in tfrecords, if requested
@@ -242,7 +244,6 @@ Use one of the following commands:
                         args.basename,
                         species,
                         splits, split_models, split_bins, n_wanted,
-                        use_codons = args.use_codons,
                         use_compression = args.use_compression,
                         verbose = args.verbose)
 
@@ -297,7 +298,7 @@ Use one of the following commands:
         # In the mode "columns" the total number of alignment columns for each basename is counted and the weights are adjusted accordingly. In mode "sequences" the total number of sequences for each basename is counted and the weights are adjusted accordingly.
         
         parser.add_argument('--tuple_length', 
-                            help = 'The MSAs will be exported as n-tupel-aligned sequences instead of nucleotide alignments where n is the tuple_length. If n = 3, you can use the flag --use_codons instead.',
+                            help = 'The MSAs will be exported as n-tupel-aligned sequences instead of nucleotide alignments where n is the tuple_length. If n = 3, you can use the flag --used_codons instead.',
                             metavar = 'TUPLE_LENGTH',
                             type = int,
                             default = 1)
@@ -385,7 +386,6 @@ Use one of the following commands:
         
         # ignore the initial args specifying the command
         args = parser.parse_args(sys.argv[2:])
-        
         
         from utilities.training import train_models
         
@@ -507,12 +507,19 @@ dm3.chr1 dmel''',
                             type=file_exists,
                             nargs='+',
         )
-       
+
+        parser.add_argument('--num_classes',
+                            help='Number of predicted classes.',
+                            metavar='NUM_CLASSES',
+                            type=int,
+                            default=2,
+        )
+
         # ignore the initial args specifying the command
         args = parser.parse_args(sys.argv[2:])
 
         if args.in_type == 'fasta':
-            
+
             #import on demand (importing tf is costly)
             import utilities.model_evaluation as me
 
@@ -550,6 +557,7 @@ dm3.chr1 dmel''',
                                               batch_size = args.batch_size,
                                               trans_dict = trans_dict,
                                               remove_stop_rows = args.remove_stop_rows,
+                                              num_classes = args.num_classes
             )
 
         if args.in_type == 'tfrecord':
@@ -558,14 +566,15 @@ dm3.chr1 dmel''',
             import utilities.model_evaluation as me
             
             preds = me.predict_on_tfrecord_files(trial_ids=args.model_ids,
-                                              saved_weights_dir=args.saved_weights_basedir,
-                                              log_dir=args.log_basedir,
-                                              clades=args.clades,
-                                              tfrecord_paths = args.input,
-                                              use_amino_acids = args.use_amino_acids,
-                                              use_codons = args.use_codons,
-                                              tuple_length = args.tuple_length,
-                                              batch_size = args.batch_size,
+                                                 saved_weights_dir=args.saved_weights_basedir,
+                                                 log_dir=args.log_basedir,
+                                                 clades=args.clades,
+                                                 tfrecord_paths = args.input,
+                                                 use_amino_acids = args.use_amino_acids,
+                                                 use_codons = args.use_codons,
+                                                 tuple_length = args.tuple_length,
+                                                 batch_size = args.batch_size,
+                                                 num_classes = args.num_classes
             )
 
         # construct a dataframe from the predictions
