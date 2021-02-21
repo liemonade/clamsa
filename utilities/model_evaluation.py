@@ -305,8 +305,9 @@ def predict_on_fasta_files(trial_ids, # OrderedDict of model ids with keys like 
         
     # TODO: Pass the variable "num_classes" to database_reader.concatenate_dataset_entries().
     if num_classes == 2:
-        dataset = dataset.map(database_reader.concatenate_dataset_entries, num_parallel_calls = 4)
+        dataset = dataset.map(database_reader.concat_sequences, num_parallel_calls = 4)
     elif num_classes == 3:
+        # this may be a yet uncorrected bug
         dataset = dataset.map(database_reader.concatenate_dataset_entries2, num_parallel_calls = 4)
     else:
         raise Exception(f'Currently we only support two and three output classes. Your number of classes:{num_classes}')
