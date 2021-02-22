@@ -556,8 +556,7 @@ dm3.chr1 dmel''',
                                               tuple_length = args.tuple_length,
                                               batch_size = args.batch_size,
                                               trans_dict = trans_dict,
-                                              remove_stop_rows = args.remove_stop_rows,
-                                              num_classes = args.num_classes
+                                              remove_stop_rows = args.remove_stop_rows
             )
 
         if args.in_type == 'tfrecord':
