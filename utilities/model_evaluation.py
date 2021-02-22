@@ -236,8 +236,7 @@ def predict_on_fasta_files(trial_ids, # OrderedDict of model ids with keys like 
                            tuple_length = 1,
                            batch_size = 30,
                            trans_dict = None,
-                           remove_stop_rows = False,
-                           num_classes = 2
+                           remove_stop_rows = False
 ):
     # calculate model properties
     tuple_length = 3 if use_codons else tuple_length
@@ -301,18 +300,7 @@ def predict_on_fasta_files(trial_ids, # OrderedDict of model ids with keys like 
                                    ))
 
     dataset = dataset.prefetch(tf.data.experimental.AUTOTUNE)
-    #dataset = dataset.map(database_reader.concatenate_dataset_entries, num_parallel_calls = 4)
-        
-    # TODO: Pass the variable "num_classes" to database_reader.concatenate_dataset_entries().
-    if num_classes == 2:
-        dataset = dataset.map(database_reader.concat_sequences, num_parallel_calls = 4)
-    elif num_classes == 3:
-        # this may be a yet uncorrected bug
-        dataset = dataset.map(database_reader.concatenate_dataset_entries2, num_parallel_calls = 4)
-    else:
-        raise Exception(f'Currently we only support two and three output classes. Your number of classes:{num_classes}')
-
-
+    dataset = dataset.map(database_reader.concat_sequences, num_parallel_calls = 4)
 
     # predict on each model
     preds = collections.OrderedDict()
